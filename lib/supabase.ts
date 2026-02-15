@@ -1,9 +1,30 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // --- Environment Configuration ---
-// optimized for Vite + Vercel compatibility
-const supabaseUrl = import.meta.env.NEXT_PUBLIC_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseKey = import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+// Helper to safely access env vars without crashing if objects are undefined
+const getEnv = (key: string) => {
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+      // @ts-ignore
+      return import.meta.env[key];
+    }
+  } catch (e) { /* Safe ignore */ }
+
+  try {
+    // @ts-ignore
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      // @ts-ignore
+      return process.env[key];
+    }
+  } catch (e) { /* Safe ignore */ }
+
+  return '';
+};
+
+const supabaseUrl = getEnv('NEXT_PUBLIC_SUPABASE_URL') || getEnv('VITE_SUPABASE_URL');
+const supabaseKey = getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || getEnv('VITE_SUPABASE_ANON_KEY');
 
 console.log('[System] Initializing Nexus Database...', { 
   connected: !!supabaseUrl && !!supabaseKey 
@@ -36,6 +57,21 @@ export interface VaultItem {
   hidden_description?: string;
   color: string;
   icon: string;
+  created_at?: string;
+}
+
+export interface SmartLink {
+  id: string;
+  title: string;
+  url: string;
+  created_at?: string;
+}
+
+export interface Task {
+  id: string;
+  date: string;
+  task_title: string;
+  is_completed: boolean;
   created_at?: string;
 }
 
