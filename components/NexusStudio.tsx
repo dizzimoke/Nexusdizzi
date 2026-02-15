@@ -1,59 +1,16 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../lib/constants';
 import { useSound } from '../lib/sound';
 import { useNotification } from './NotificationProvider';
-
-// --- Types & Constants ---
-const DB_NAME = 'NexusVaultDB';
-const STORE_NAME = 'files';
-
-interface VaultFile {
-    id: string;
-    name: string;
-    size: number;
-    type: string;
-    data: Blob;
-    timestamp: number;
-}
+import { useNexusFiles } from '../lib/hooks';
+import { NexusFile } from '../lib/supabase';
 
 type ToolType = 'SELECT' | 'RAZOR' | 'TEXT' | 'HAND' | 'WAND';
 type PanelTab = 'PROPERTIES' | 'COLOR' | 'NEURAL' | 'EXPORT';
 
-// --- Database Logic ---
-const initDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 2);
-        request.onupgradeneeded = (event) => {
-            const db = request.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-            }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-const getFilesFromDB = async (): Promise<VaultFile[]> => {
-    try {
-        const db = await initDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(STORE_NAME, 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const req = store.getAll();
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
-    } catch (e) {
-        console.error("DB Error", e);
-        return [];
-    }
-};
-
-// --- Sub Components (Moved to top to prevent used-before-declaration issues) ---
+// --- Sub Components ---
 
 const ToolButton = ({ icon: Icon, active, onClick, tooltip }: any) => (
     <button 
@@ -124,8 +81,10 @@ const NeuralButton = ({ label, icon, onClick }: any) => (
 );
 
 const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
-    const [assets, setAssets] = useState<VaultFile[]>([]);
-    const [activeFile, setActiveFile] = useState<VaultFile | null>(null);
+    // --- Data Integration: Uses Supabase Hooks instead of IndexedDB ---
+    const { files: assets } = useNexusFiles();
+    
+    const [activeFile, setActiveFile] = useState<NexusFile | null>(null);
     const [activeTool, setActiveTool] = useState<ToolType>('SELECT');
     const [activeTab, setActiveTab] = useState<PanelTab>('PROPERTIES');
     
@@ -138,27 +97,16 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
     // Media State
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
-    const [volume, setVolume] = useState(1);
     
     // Image State
     const [imgAdjustments, setImgAdjustments] = useState({
         brightness: 100, contrast: 100, saturate: 100, hue: 0, blur: 0
     });
 
-    const { playClick, playDing, playWhoosh, playTick } = useSound();
+    const { playClick, playDing, playWhoosh } = useSound();
     const { showNotification } = useNotification();
 
-    // Init
-    useEffect(() => {
-        loadAssets();
-    }, []);
-
-    const loadAssets = async () => {
-        const files = await getFilesFromDB();
-        setAssets(files.sort((a, b) => b.timestamp - a.timestamp));
-    };
-
-    const handleFileSelect = (file: VaultFile) => {
+    const handleFileSelect = (file: NexusFile) => {
         setActiveFile(file);
         setCurrentTime(0);
         setIsPlaying(false);
@@ -259,7 +207,6 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                 <div className="w-64 border-r border-white/5 bg-[#080808] flex flex-col shrink-0">
                     <div className="p-3 border-b border-white/5 flex justify-between items-center">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Project Bin</span>
-                        <Icons.Plus width={14} className="text-zinc-500 hover:text-white cursor-pointer" />
                     </div>
                     <div className="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar">
                         {assets.map(file => (
@@ -270,7 +217,7 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                             >
                                 <div className="w-8 h-8 rounded bg-black/50 border border-white/10 flex items-center justify-center overflow-hidden">
                                     {file.type.startsWith('image/') ? (
-                                        <img src={URL.createObjectURL(file.data)} className="w-full h-full object-cover opacity-70 group-hover:opacity-100" />
+                                        <img src={file.url} className="w-full h-full object-cover opacity-70 group-hover:opacity-100" />
                                     ) : file.type.startsWith('video/') ? (
                                         <Icons.Film width={12} className="text-blue-400" />
                                     ) : (
@@ -279,7 +226,7 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                                 </div>
                                 <div className="min-w-0">
                                     <div className={`text-[10px] font-bold truncate ${activeFile?.id === file.id ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{file.name}</div>
-                                    <div className="text-[9px] text-zinc-600 font-mono">{file.type.split('/')[1].toUpperCase()}</div>
+                                    <div className="text-[9px] text-zinc-600 font-mono">{file.type.split('/')[1]?.toUpperCase() || 'FILE'}</div>
                                 </div>
                             </div>
                         ))}
@@ -298,7 +245,7 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                             <div className="relative shadow-2xl group">
                                 {activeFile.type.startsWith('image/') ? (
                                     <img 
-                                        src={URL.createObjectURL(activeFile.data)} 
+                                        src={activeFile.url} 
                                         className="max-w-[90%] max-h-[60vh] object-contain border border-white/5"
                                         style={{
                                             filter: `brightness(${imgAdjustments.brightness}%) contrast(${imgAdjustments.contrast}%) saturate(${imgAdjustments.saturate}%) hue-rotate(${imgAdjustments.hue}deg) blur(${imgAdjustments.blur}px)`
@@ -307,14 +254,15 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                                 ) : activeFile.type.startsWith('video/') ? (
                                     <video 
                                         ref={videoRef}
-                                        src={URL.createObjectURL(activeFile.data)}
+                                        src={activeFile.url}
                                         className="max-w-[90%] max-h-[60vh] border border-white/5"
                                         onTimeUpdate={handleTimeUpdate}
                                         onClick={togglePlayback}
+                                        crossOrigin="anonymous"
                                     />
                                 ) : (
                                     <div className="flex flex-col items-center gap-4">
-                                        <audio ref={audioRef} src={URL.createObjectURL(activeFile.data)} onTimeUpdate={handleTimeUpdate} />
+                                        <audio ref={audioRef} src={activeFile.url} onTimeUpdate={handleTimeUpdate} crossOrigin="anonymous" />
                                         <div className="w-64 h-64 border border-green-500/20 bg-green-500/5 rounded-full flex items-center justify-center animate-pulse">
                                             <Icons.Music width={64} className="text-green-500" />
                                         </div>
@@ -428,10 +376,8 @@ const NexusStudio: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                                         <div className="space-y-2">
                                             <Label>File Metadata</Label>
                                             <div className="grid grid-cols-2 gap-2 text-[10px] text-zinc-400 font-mono bg-white/5 p-2 rounded">
-                                                <span>RES:</span> <span className="text-right text-white">1920x1080</span>
+                                                <span>TYPE:</span> <span className="text-right text-white">{activeFile.type.split('/')[1]?.toUpperCase()}</span>
                                                 <span>SIZE:</span> <span className="text-right text-white">{(activeFile.size / 1024 / 1024).toFixed(2)} MB</span>
-                                                <span>FPS:</span> <span className="text-right text-white">60.00</span>
-                                                <span>CODEC:</span> <span className="text-right text-white">H.264</span>
                                             </div>
                                         </div>
                                         
