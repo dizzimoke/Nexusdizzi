@@ -14,6 +14,35 @@ import GhostSidebar from './components/GhostSidebar';
 import { SPRING_CONFIG, Icons } from './lib/constants';
 import { useSound } from './lib/sound';
 import { NotificationProvider } from './components/NotificationProvider';
+import { checkConnection } from './lib/supabase';
+
+// --- Error Boundary ---
+interface ErrorBoundaryProps {
+  children?: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError() { return { hasError: true }; }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-screen w-screen flex items-center justify-center bg-black text-red-500 font-mono flex-col gap-4">
+           <Icons.Skull width={48} height={48} />
+           <h1 className="text-xl tracking-[0.2em] font-bold uppercase">System Critical Failure</h1>
+           <button onClick={() => window.location.reload()} className="px-6 py-2 border border-red-500 rounded hover:bg-red-500 hover:text-black transition-colors uppercase text-xs">Reboot System</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // --- Theme Configurations ---
 const THEMES = [
@@ -99,6 +128,7 @@ const AppContent: React.FC = () => {
   const [cloakMessageId, setCloakMessageId] = useState<string | null>(null);
   const [zenMode, setZenMode] = useState(false);
   const [zenPlaylist, setZenPlaylist] = useState('37i9dQZF1DWZeKCadgRdKQ');
+  const [isOnline, setIsOnline] = useState(true);
   
   // --- Menu System State ---
   const [menuMode, setMenuMode] = useState<'orbital' | 'ghost'>(() => {
@@ -114,7 +144,7 @@ const AppContent: React.FC = () => {
   let currentTheme = THEMES[activeTab] || THEMES[0];
   const [ripples, setRipples] = useState<{x: number, y: number, id: number}[]>([]);
 
-  // Mobile Detection & Deep Linking
+  // Mobile Detection, Connection Check & Deep Linking
   useEffect(() => {
     const handleResize = () => {
         const mobile = window.innerWidth < 1024;
@@ -129,6 +159,9 @@ const AppContent: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const cloakId = params.get('cloak');
     if (cloakId) setCloakMessageId(cloakId);
+
+    // Initial Connection Check
+    checkConnection().then(setIsOnline);
 
     return () => window.removeEventListener('resize', handleResize);
   }, [menuMode]);
@@ -281,6 +314,9 @@ const AppContent: React.FC = () => {
                <div className="flex items-center gap-2 mt-2">
                  <div className={`w-2 h-2 rounded-full animate-pulse`} style={{ backgroundColor: currentTheme.accent }} />
                  <p className="text-sm text-white/40 font-semibold tracking-[0.2em] uppercase">{subtitles[activeTab]}</p>
+                 {!isOnline && (
+                     <span className="ml-4 px-2 py-0.5 bg-red-500/10 border border-red-500/50 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">System Offline</span>
+                 )}
                </div>
              </motion.div>
            </AnimatePresence>
@@ -307,9 +343,12 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <NotificationProvider>
-    <AppContent />
-  </NotificationProvider>
+  <ErrorBoundary>
+    <NotificationProvider>
+        <AppContent />
+    </NotificationProvider>
+  </ErrorBoundary>
 );
 
 export default App;
+    

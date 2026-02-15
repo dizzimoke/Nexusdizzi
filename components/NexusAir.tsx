@@ -1,74 +1,17 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../lib/constants';
 import { useSound } from '../lib/sound';
 import { useNotification } from './NotificationProvider';
-
-// --- Types & Database Logic (Preserved) ---
-type FileType = 'IMAGE' | 'DOC' | 'MEDIA' | 'ARCHIVE' | 'UNKNOWN';
-
-interface VaultFile {
-    id: string;
-    name: string;
-    size: number;
-    type: string;
-    data: Blob;
-    timestamp: number;
-}
-
-const DB_NAME = 'NexusVaultDB';
-const STORE_NAME = 'files';
-
-const initDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 2); 
-        request.onupgradeneeded = (event) => {
-            const db = request.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-            }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-const saveFileToDB = async (file: VaultFile) => {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.put(file);
-        request.onsuccess = () => resolve(true);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-const getFilesFromDB = async (): Promise<VaultFile[]> => {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-const deleteFileFromDB = async (id: string) => {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.delete(id);
-        request.onsuccess = () => resolve(true);
-        request.onerror = () => reject(request.error);
-    });
-};
+import { useNexusFiles } from '../lib/hooks';
+import { NexusFile } from '../lib/supabase';
 
 // --- Helpers ---
+type FileType = 'IMAGE' | 'DOC' | 'MEDIA' | 'ARCHIVE' | 'UNKNOWN';
+
 const getFileType = (mime: string): FileType => {
+    if (!mime) return 'UNKNOWN';
     if (mime.startsWith('image/')) return 'IMAGE';
     if (mime.startsWith('video/') || mime.startsWith('audio/')) return 'MEDIA';
     if (mime.includes('pdf') || mime.includes('text') || mime.includes('document')) return 'DOC';
@@ -89,62 +32,48 @@ interface NexusAirProps {
 }
 
 const NexusAir = ({ onClose }: NexusAirProps) => {
-    const [files, setFiles] = useState<VaultFile[]>([]);
+    const { files, uploading, uploadFile, deleteFile } = useNexusFiles();
     const [expandedStack, setExpandedStack] = useState<FileType | null>(null);
     const [isDragging, setIsDragging] = useState(false);
-    const [previewFile, setPreviewFile] = useState<VaultFile | null>(null);
+    const [previewFile, setPreviewFile] = useState<NexusFile | null>(null);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { playClick, playDing, playWhoosh, playPop } = useSound();
+    const { playClick, playDing, playPop } = useSound();
     const { showNotification } = useNotification();
 
-    useEffect(() => {
-        loadFiles();
-    }, []);
-
-    const loadFiles = async () => {
-        const dbFiles = await getFilesFromDB();
-        setFiles(dbFiles.sort((a, b) => b.timestamp - a.timestamp));
-    };
-
     const handleFileUpload = async (file: File) => {
-        const newVaultFile: VaultFile = {
-            id: crypto.randomUUID(),
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            data: file,
-            timestamp: Date.now()
-        };
-        await saveFileToDB(newVaultFile);
-        playDing();
-        showNotification('Secured in Air Vault', 'success');
-        loadFiles();
+        try {
+            await uploadFile(file);
+            playDing();
+            showNotification('Secured in Air Vault', 'success');
+        } catch (e) {
+            showNotification('Upload Failed', 'reminder');
+        }
     };
 
-    const handleDeleteFile = async (id: string) => {
-        if (window.confirm('Permanently erase this file?')) {
-            await deleteFileFromDB(id);
+    const handleDeleteFile = async (id: string, path: string) => {
+        if (window.confirm('Permanently erase this file from cloud storage?')) {
+            await deleteFile(id, path);
             setPreviewFile(null);
             playPop();
-            loadFiles();
             showNotification('File Erased', 'reminder');
         }
     };
 
     const stacks = useMemo(() => {
-        const groups: Record<string, VaultFile[]> = {
+        const groups: Record<string, NexusFile[]> = {
             'IMAGE': [], 'DOC': [], 'MEDIA': [], 'ARCHIVE': [], 'UNKNOWN': []
         };
         files.forEach(f => {
             const type = getFileType(f.type);
-            groups[type].push(f);
+            if (groups[type]) groups[type].push(f);
+            else groups['UNKNOWN'].push(f);
         });
         return groups;
     }, [files]);
 
     const totalSize = files.reduce((acc, f) => acc + f.size, 0);
-    const maxCapacity = 1024 * 1024 * 1024; // 1GB Demo Limit
+    const maxCapacity = 5 * 1024 * 1024 * 1024; // 5GB Limit for Pro
     const usagePercent = Math.min((totalSize / maxCapacity) * 100, 100);
 
     return (
@@ -159,7 +88,7 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={(e) => { e.preventDefault(); setIsDragging(false); e.dataTransfer.files?.[0] && handleFileUpload(e.dataTransfer.files[0]); }}
             >
-                {/* Content Wrapper that recedes when dragging */}
+                {/* Content Wrapper */}
                 <motion.div 
                     className="flex flex-col h-full"
                     animate={{ 
@@ -174,23 +103,23 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                         <div className="flex items-end justify-between border-b border-white/[0.04] pb-6">
                             <div>
                                 <h1 className="text-3xl font-light tracking-tight text-white mb-1">Nexus Air</h1>
-                                <p className="text-xs text-white/30 font-medium tracking-[0.2em] uppercase">Encrypted Cloud System</p>
+                                <p className="text-xs text-white/30 font-medium tracking-[0.2em] uppercase">Supabase Cloud System</p>
                             </div>
                             
                             {/* Storage Pill */}
                             <div className="flex flex-col items-end gap-2">
-                                <span className="text-[10px] font-bold text-white/20 tracking-widest">{formatSize(totalSize)} / 1 GB</span>
+                                <span className="text-[10px] font-bold text-white/20 tracking-widest">{formatSize(totalSize)} / 5 GB</span>
                                 <div className="w-32 h-0.5 bg-white/10 rounded-full overflow-hidden">
                                     <motion.div 
                                         initial={{ width: 0 }} 
                                         animate={{ width: `${usagePercent}%` }}
-                                        className="h-full bg-white/50"
+                                        className={`h-full ${uploading ? 'bg-blue-500 animate-pulse' : 'bg-white/50'}`}
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Horizontal Category Row (The "Linear" Look) */}
+                        {/* Horizontal Category Row */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <CategoryCard 
                                 type="IMAGE" 
@@ -232,15 +161,15 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                                     className="h-full overflow-y-auto no-scrollbar pb-32"
                                 >
                                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                                        {/* Upload Button First */}
+                                        {/* Upload Button */}
                                         <button
                                             onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                                            className="aspect-[4/5] rounded-[20px] border border-dashed border-white/10 flex flex-col items-center justify-center gap-4 hover:bg-white/[0.02] hover:border-white/20 transition-all duration-200 group will-change-transform"
+                                            className="aspect-[4/5] rounded-[20px] border border-dashed border-white/10 flex flex-col items-center justify-center gap-4 hover:bg-white/[0.02] hover:border-white/20 transition-all duration-200 group"
                                         >
                                             <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/30 group-hover:text-white group-hover:bg-white/10 transition-colors">
-                                                <Icons.Plus width={20} />
+                                                {uploading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Icons.Plus width={20} />}
                                             </div>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">Upload</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">{uploading ? 'Uplink...' : 'Upload'}</span>
                                         </button>
 
                                         {/* Files */}
@@ -280,27 +209,16 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                                 initial={{ scale: 0.9, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.95, opacity: 0 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                className="w-[90%] h-[80%] border-4 border-dashed border-sky-500/50 bg-sky-500/10 rounded-[3rem] flex flex-col items-center justify-center gap-8 backdrop-blur-sm relative overflow-hidden pointer-events-auto"
+                                className="w-[90%] h-[80%] border-4 border-dashed border-sky-500/50 bg-sky-500/10 rounded-[3rem] flex flex-col items-center justify-center gap-8 backdrop-blur-sm"
                             >
-                                {/* Animated Glow/Pulse */}
-                                <motion.div 
-                                    className="absolute inset-0 bg-sky-500/10"
-                                    animate={{ opacity: [0.2, 0.5, 0.2] }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                />
-
                                 <motion.div
                                     animate={{ y: [0, -15, 0], scale: [1, 1.1, 1] }}
-                                    transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                                    className="p-8 bg-sky-500 rounded-full text-black shadow-[0_0_50px_rgba(14,165,233,0.6)] relative z-10"
+                                    transition={{ repeat: Infinity, duration: 1.5 }}
+                                    className="p-8 bg-sky-500 rounded-full text-black shadow-[0_0_50px_rgba(14,165,233,0.6)]"
                                 >
                                     <Icons.CloudUpload width={64} height={64} strokeWidth={2} />
                                 </motion.div>
-                                <div className="text-center relative z-10 space-y-2">
-                                    <h2 className="text-3xl font-bold tracking-[0.2em] text-white uppercase drop-shadow-lg">Release to Encrypt</h2>
-                                    <p className="text-sky-300/80 font-mono text-sm tracking-widest">SECURE VAULT UPLINK DETECTED</p>
-                                </div>
+                                <h2 className="text-3xl font-bold tracking-[0.2em] text-white uppercase">Initialize Uplink</h2>
                             </motion.div>
                         </div>
                     )}
@@ -329,9 +247,12 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
 
                                 <div className="flex-1 flex items-center justify-center bg-[#050505] relative p-8">
                                     {previewFile.type.startsWith('image/') ? (
-                                        <img src={URL.createObjectURL(previewFile.data)} className="max-h-full max-w-full object-contain rounded-lg shadow-2xl" />
+                                        <img src={previewFile.url} className="max-h-full max-w-full object-contain rounded-lg shadow-2xl" />
                                     ) : (
-                                        <Icons.FileText width={100} strokeWidth={0.5} className="text-white/20" />
+                                        <div className="flex flex-col items-center gap-4 text-white/20">
+                                            <Icons.FileText width={100} strokeWidth={0.5} />
+                                            <span className="font-mono text-xs">PREVIEW UNAVAILABLE</span>
+                                        </div>
                                     )}
                                 </div>
 
@@ -339,14 +260,14 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                                     <div>
                                         <h2 className="text-xl font-medium text-white mb-6 break-all leading-snug">{previewFile.name}</h2>
                                         <div className="space-y-6">
-                                            <MetaRow label="Type" value={previewFile.type.split('/')[1].toUpperCase()} />
+                                            <MetaRow label="Type" value={previewFile.type.split('/')[1]?.toUpperCase() || 'FILE'} />
                                             <MetaRow label="Size" value={formatSize(previewFile.size)} />
-                                            <MetaRow label="Created" value={new Date(previewFile.timestamp).toLocaleDateString()} />
+                                            <MetaRow label="Created" value={new Date(previewFile.created_at).toLocaleDateString()} />
                                         </div>
                                     </div>
                                     <div className="space-y-3">
-                                        <button className="w-full py-3 bg-white text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors">Download</button>
-                                        <button onClick={() => handleDeleteFile(previewFile.id)} className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-colors">Delete</button>
+                                        <a href={previewFile.url} download target="_blank" rel="noreferrer" className="block w-full py-3 bg-white text-black rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-200 transition-colors text-center">Download</a>
+                                        <button onClick={() => handleDeleteFile(previewFile.id, previewFile.storage_path)} className="w-full py-3 bg-red-500/10 text-red-500 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-500/20 transition-colors">Delete</button>
                                     </div>
                                 </div>
                             </motion.div>
@@ -394,7 +315,7 @@ const CategoryCard = ({ type, count, active, onClick }: { type: string, count: n
     );
 };
 
-const FileNode: React.FC<{ file: VaultFile, onClick: () => void }> = ({ file, onClick }) => {
+const FileNode: React.FC<{ file: NexusFile, onClick: () => void }> = ({ file, onClick }) => {
     const isImage = file.type.startsWith('image/');
     
     return (
@@ -404,7 +325,7 @@ const FileNode: React.FC<{ file: VaultFile, onClick: () => void }> = ({ file, on
         >
             <div className="aspect-[4/5] w-full rounded-[20px] bg-white/[0.02] border border-white/5 overflow-hidden relative group-hover:border-white/20 transition-colors">
                 {isImage ? (
-                    <img src={URL.createObjectURL(file.data)} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300" loading="lazy" />
+                    <img src={file.url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300" loading="lazy" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-white/10 group-hover:text-white/40 transition-colors">
                         <Icons.FileText width={40} strokeWidth={1} />

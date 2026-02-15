@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import { Icons, SPRING_CONFIG } from '../lib/constants';
 import { useSound } from '../lib/sound';
 import { useNotification } from './NotificationProvider';
-import { uploadFile } from '../lib/supabase';
+import { uploadToVault } from '../lib/supabase';
 
 const FileShareWidget: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
@@ -46,7 +46,8 @@ const FileShareWidget: React.FC = () => {
      }, 150);
 
      try {
-         const url = await uploadFile(selectedFile);
+         const { publicUrl } = await uploadToVault(selectedFile);
+         const url = publicUrl;
          
          // Complete
          clearInterval(progressInterval);

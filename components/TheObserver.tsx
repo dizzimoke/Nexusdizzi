@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Icons, SPRING_CONFIG } from '../lib/constants';
+import { Icons } from '../lib/constants';
 import { useSound } from '../lib/sound';
 import { useNotification } from './NotificationProvider';
-import { useObserver, ObserverEvidence } from '../lib/hooks';
-import { fetchFromDatabase, SentinelService } from '../lib/totp';
+import { useObserver } from '../lib/hooks';
+import { ObserverLog } from '../lib/supabase';
+import { SentinelService, fetchFromDatabase } from '../lib/totp';
 
 interface TheObserverProps {
     onClose?: () => void;
@@ -19,6 +20,7 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
     const [filter, setFilter] = useState('ALL');
     const [identities, setIdentities] = useState<SentinelService[]>([]);
     const [isDragging, setIsDragging] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [ghostImage, setGhostImage] = useState<string | null>(null);
     const [ghostOpacity, setGhostOpacity] = useState(50);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,14 +41,7 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
             for (const item of items) {
                 if (item.type.indexOf('image') !== -1) {
                     const blob = item.getAsFile();
-                    if (blob) {
-                        playWhoosh();
-                        showNotification('Processing Clipboard Image...', 'info');
-                        addEvidence(blob).then(() => {
-                             playDing();
-                             showNotification('Evidence Securely Logged', 'success');
-                        });
-                    }
+                    if (blob) handleUpload(blob);
                 }
             }
         };
@@ -54,16 +49,27 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
         return () => window.removeEventListener('paste', handlePaste);
     }, [addEvidence]);
 
+    const handleUpload = async (file: File) => {
+        setIsUploading(true);
+        playWhoosh();
+        showNotification('Encrypting Visual Data...', 'info');
+        try {
+            await addEvidence(file);
+            playDing();
+            showNotification('Evidence Securely Logged', 'success');
+        } catch (e) {
+            showNotification('Upload Failed', 'reminder');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('image/')) {
-            playWhoosh();
-            addEvidence(file).then(() => {
-                playDing();
-                showNotification('Evidence Securely Logged', 'success');
-            });
+            handleUpload(file);
         }
     };
 
@@ -157,10 +163,16 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
                         ))}
                     </AnimatePresence>
                 </div>
-                {evidence.length === 0 && (
+                {evidence.length === 0 && !isUploading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-700 pointer-events-none">
                         <Icons.Aperture width={80} height={80} className="mb-6 opacity-20" />
                         <span className="text-xl font-black uppercase tracking-[0.2em] text-zinc-800">No Visual Intel</span>
+                    </div>
+                )}
+                {isUploading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-50 backdrop-blur-sm">
+                        <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                        <span className="mt-4 text-xs font-bold uppercase tracking-widest text-white">Uplinking Evidence...</span>
                     </div>
                 )}
             </div>
@@ -170,7 +182,7 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => !isUploading && fileInputRef.current?.click()}
                 className={`
                     shrink-0 h-32 border-t border-white/10 flex items-center justify-center transition-all cursor-pointer relative overflow-hidden group
                     ${isDragging ? 'bg-white/10' : 'hover:bg-white/[0.02] bg-[#050505]'}
@@ -184,7 +196,7 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) addEvidence(file);
+                    if (file) handleUpload(file);
                 }} />
             </div>
 
@@ -233,19 +245,19 @@ const TheObserver: React.FC<TheObserverProps> = ({ onClose, onNavigate }) => {
 
 // Evidence Card Re-style
 const EvidenceCard: React.FC<{
-    data: ObserverEvidence;
+    data: ObserverLog;
     identities: SentinelService[];
-    onUpdate: (id: string, updates: Partial<ObserverEvidence>) => void;
+    onUpdate: (id: string, updates: Partial<ObserverLog>) => void;
     onDelete: (id: string) => void;
     onGhost: (img: string) => void;
     onOCR: (img: string) => void;
 }> = ({ data, identities, onUpdate, onDelete, onGhost, onOCR }) => {
     const [isHovered, setIsHovered] = useState(false);
-    const { playTick, playClick } = useSound();
+    const { playTick } = useSound();
 
-    const linkedIdentity = identities.find(id => id.id === data.linkedIdentityId);
+    const linkedIdentity = identities.find(id => id.id === data.linked_identity_id);
     
-    const date = new Date(data.timestamp);
+    const date = new Date(data.created_at);
     const timeStr = `${date.getDate()}/${date.getMonth()+1} • ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 
     return (
@@ -259,8 +271,8 @@ const EvidenceCard: React.FC<{
             onMouseLeave={() => setIsHovered(false)}
         >
             {/* Image Thumbnail */}
-            <div className="relative aspect-video bg-black/50 cursor-pointer group/img" onClick={() => onGhost(data.imageData)}>
-                <img src={data.imageData} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" />
+            <div className="relative aspect-video bg-black/50 cursor-pointer group/img" onClick={() => onGhost(data.image_url)}>
+                <img src={data.image_url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-500" />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
                     <span className="bg-black/60 backdrop-blur-md text-white border border-white/20 px-5 py-2 rounded-full text-xs font-bold uppercase tracking-widest shadow-xl">
                         Ghost View
@@ -271,7 +283,7 @@ const EvidenceCard: React.FC<{
             {/* Controls Overlay */}
             <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button 
-                    onClick={() => onOCR(data.imageData)}
+                    onClick={() => onOCR(data.image_url)}
                     className="p-2.5 bg-black/50 hover:bg-white text-white hover:text-black rounded-xl backdrop-blur-md border border-white/10 transition-colors"
                     title="Send to OCR"
                  >
@@ -296,8 +308,8 @@ const EvidenceCard: React.FC<{
                 {/* Identity Link */}
                 <div className="relative group/select">
                     <select 
-                        value={data.linkedIdentityId || ''}
-                        onChange={(e) => onUpdate(data.id, { linkedIdentityId: e.target.value })}
+                        value={data.linked_identity_id || ''}
+                        onChange={(e) => onUpdate(data.id, { linked_identity_id: e.target.value })}
                         className="w-full bg-transparent border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white uppercase tracking-wide appearance-none cursor-pointer hover:border-white/30 transition-colors focus:border-white focus:bg-white/5"
                         onClick={playTick}
                     >
@@ -312,18 +324,6 @@ const EvidenceCard: React.FC<{
                         <Icons.ChevronDown width={14} />
                     </div>
                 </div>
-
-                {/* Linked Tooltip */}
-                {linkedIdentity && isHovered && (
-                     <motion.div 
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="absolute bottom-full left-0 right-0 bg-zinc-900/95 backdrop-blur-xl p-3 border-t border-white/20 text-[10px] font-mono text-zinc-300 z-20 shadow-2xl"
-                     >
-                         <div className="font-bold text-white mb-1">LINKED: {linkedIdentity.name}</div>
-                         <div className="truncate opacity-70">{linkedIdentity.note || 'NO_CONTEXT'}</div>
-                     </motion.div>
-                )}
 
                 {/* Note */}
                 <textarea 

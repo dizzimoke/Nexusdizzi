@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../lib/constants';
@@ -24,22 +25,25 @@ const CloakViewer: React.FC<CloakViewerProps> = ({ messageId, onClose }) => {
 
     // Initial Fetch
     useEffect(() => {
-        const msg = getMessage(messageId);
-        if (msg) {
-            // Set dynamic timer based on message config
-            setTimeLeft(msg.burnTimer || 30);
-            
-            setTimeout(() => {
-                setStatus('decrypting');
+        const loadMessage = async () => {
+            const msg = await getMessage(messageId);
+            if (msg) {
+                // Set dynamic timer based on message config
+                setTimeLeft(msg.burnTimer || 30);
+                
                 setTimeout(() => {
-                    setMessage(msg);
-                    setStatus('viewing');
-                    playWhoosh();
-                }, 1500); // Fake decryption delay
-            }, 1000);
-        } else {
-            setStatus('burned');
-        }
+                    setStatus('decrypting');
+                    setTimeout(() => {
+                        setMessage(msg);
+                        setStatus('viewing');
+                        playWhoosh();
+                    }, 1500); // Fake decryption delay
+                }, 1000);
+            } else {
+                setStatus('burned');
+            }
+        };
+        loadMessage();
     }, [messageId]);
 
     // Timer & Visibility Logic
