@@ -1,6 +1,5 @@
 
 import { useState, useEffect, useCallback } from 'react';
-// Fix: Added SmartLink to imports from supabase to resolve "Cannot find name 'SmartLink'" error on line 6.
 import { supabase, uploadToVault, deleteFromVault, VaultItem, Task, ObserverLog, NexusFile, SmartLink } from './supabase';
 
 // Export types for better clarity
@@ -8,15 +7,18 @@ export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
 /**
  * useSmartLinks: Handles quick access links.
- * Schema: table 'links', columns 'title', 'url'.
  */
 export const useSmartLinks = () => {
-  // Fix: Used SmartLink[] instead of any[] for better type safety.
   const [links, setLinks] = useState<SmartLink[]>([]);
   const fetchLinks = useCallback(async () => {
-    const { data, error } = await supabase.from('links').select('*').order('created_at', { ascending: false });
-    if (!error && data) setLinks(data);
+    try {
+      const { data, error } = await supabase.from('links').select('*').order('created_at', { ascending: false });
+      if (!error && data) setLinks(data);
+    } catch (err) {
+      console.error('[Database] Failed to fetch links:', err);
+    }
   }, []);
+  
   useEffect(() => { fetchLinks(); }, [fetchLinks]);
 
   const addLink = async (link: { title: string; url: string }) => {
@@ -24,28 +26,37 @@ export const useSmartLinks = () => {
     
     console.log('[Database] Executing Link Insertion...', { title: link.title, url: formattedUrl });
     
-    const { data, error } = await supabase
-      .from('links')
-      .insert([{ title: link.title, url: formattedUrl }])
-      .select();
+    try {
+      const { data, error } = await supabase
+        .from('links')
+        .insert([{ title: link.title, url: formattedUrl }])
+        .select();
 
-    if (error) {
-      console.error('[Database] Link Insertion Error:', error.message, error.details);
+      if (error) {
+        console.error('[Database] Link Insertion Error:', error.message, error.details);
+        return false;
+      }
+
+      console.log('[Database] Link Insertion Successful:', data);
+      if (data && data.length > 0) {
+        setLinks(prev => [data[0], ...prev]);
+        return true;
+      }
+    } catch (err) {
+      console.error('[Database] Critical Network Failure during Insertion:', err);
       return false;
-    }
-
-    console.log('[Database] Link Insertion Successful:', data);
-    if (data && data.length > 0) {
-      setLinks(prev => [data[0], ...prev]);
-      return true;
     }
     return false;
   };
 
   const deleteLink = async (id: string) => {
-    const { error } = await supabase.from('links').delete().eq('id', id);
-    if (!error) {
-      setLinks(prev => prev.filter(l => l.id !== id));
+    try {
+      const { error } = await supabase.from('links').delete().eq('id', id);
+      if (!error) {
+        setLinks(prev => prev.filter(l => l.id !== id));
+      }
+    } catch (err) {
+      console.error('[Database] Delete operation failed:', err);
     }
   };
 
@@ -54,46 +65,62 @@ export const useSmartLinks = () => {
 
 /**
  * useTasks: Handles calendar task management.
- * Schema: table 'tasks', columns 'date', 'task_title', 'is_completed'.
  */
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const fetchTasks = useCallback(async () => {
-    const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
-    if (!error && data) setTasks(data);
+    try {
+      const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
+      if (!error && data) setTasks(data);
+    } catch (err) {
+      console.error('[Database] Failed to fetch tasks:', err);
+    }
   }, []);
+  
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   const addTask = async (taskData: Partial<Task>) => {
     console.log('[Database] Executing Task Insertion...', taskData);
     
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert([taskData])
-      .select();
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([taskData])
+        .select();
 
-    if (error) {
-      console.error('[Database] Task Insertion Error:', error.message, error.details);
-      return;
-    }
+      if (error) {
+        console.error('[Database] Task Insertion Error:', error.message, error.details);
+        return;
+      }
 
-    console.log('[Database] Task Insertion Successful:', data);
-    if (data && data.length > 0) {
-      setTasks(prev => [...prev, data[0] as Task]);
+      console.log('[Database] Task Insertion Successful:', data);
+      if (data && data.length > 0) {
+        setTasks(prev => [...prev, data[0] as Task]);
+      }
+    } catch (err) {
+      console.error('[Database] Critical Network Failure during Task Insertion:', err);
     }
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
-    const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
-    if (!error) {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: completed } : t));
+    try {
+      const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
+      if (!error) {
+        setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: completed } : t));
+      }
+    } catch (err) {
+      console.error('[Database] Toggle task failed:', err);
     }
   };
 
   const deleteTask = async (id: string) => {
-    const { error } = await supabase.from('tasks').delete().eq('id', id);
-    if (!error) {
-      setTasks(prev => prev.filter(t => t.id !== id));
+    try {
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (!error) {
+        setTasks(prev => prev.filter(t => t.id !== id));
+      }
+    } catch (err) {
+      console.error('[Database] Task deletion failed:', err);
     }
   };
 
@@ -106,23 +133,43 @@ export const useTasks = () => {
 export const useVaultItems = () => {
   const [items, setItems] = useState<VaultItem[]>([]);
   const fetchItems = useCallback(async () => {
-    const { data, error } = await supabase.from('vault').select('*').order('created_at', { ascending: false });
-    if (!error && data) setItems(data);
+    try {
+      const { data, error } = await supabase.from('vault').select('*').order('created_at', { ascending: false });
+      if (!error && data) setItems(data);
+    } catch (err) {
+      console.error('[Database] Vault fetch failed:', err);
+    }
   }, []);
+  
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const addItem = async (item: Partial<VaultItem>) => {
-    const { data, error } = await supabase.from('vault').insert([item]).select();
-    if (!error && data) setItems(prev => [data[0] as VaultItem, ...prev]);
+    try {
+      const { data, error } = await supabase.from('vault').insert([item]).select();
+      if (!error && data) setItems(prev => [data[0] as VaultItem, ...prev]);
+    } catch (err) {
+      console.error('[Database] Vault addition failed:', err);
+    }
   };
+  
   const updateItem = async (id: string, updates: Partial<VaultItem>) => {
-    const { data, error } = await supabase.from('vault').update(updates).eq('id', id).select();
-    if (!error && data) setItems(prev => prev.map(i => i.id === id ? data[0] as VaultItem : i));
+    try {
+      const { data, error } = await supabase.from('vault').update(updates).eq('id', id).select();
+      if (!error && data) setItems(prev => prev.map(i => i.id === id ? data[0] as VaultItem : i));
+    } catch (err) {
+      console.error('[Database] Vault update failed:', err);
+    }
   };
+  
   const deleteItem = async (id: string) => {
-    await supabase.from('vault').delete().eq('id', id);
-    setItems(prev => prev.filter(i => i.id !== id));
+    try {
+      await supabase.from('vault').delete().eq('id', id);
+      setItems(prev => prev.filter(i => i.id !== id));
+    } catch (err) {
+      console.error('[Database] Vault deletion failed:', err);
+    }
   };
+  
   return { items, addItem, updateItem, deleteItem, loading: false };
 };
 
@@ -172,24 +219,44 @@ export const useCloakMessaging = () => {
 export const useObserver = () => {
   const [evidence, setEvidence] = useState<ObserverLog[]>([]);
   const fetchEvidence = useCallback(async () => {
-    const { data, error } = await supabase.from('observer_logs').select('*').order('created_at', { ascending: false });
-    if (!error && data) setEvidence(data);
+    try {
+      const { data, error } = await supabase.from('observer_logs').select('*').order('created_at', { ascending: false });
+      if (!error && data) setEvidence(data);
+    } catch (err) {
+      console.error('[Database] Observer fetch failed:', err);
+    }
   }, []);
+  
   useEffect(() => { fetchEvidence(); }, [fetchEvidence]);
 
   const addEvidence = async (file: File) => {
-    const { publicUrl } = await uploadToVault(file, 'observer-logs');
-    const { data, error } = await supabase.from('observer_logs').insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }]).select();
-    if (!error && data) setEvidence(prev => [data[0] as ObserverLog, ...prev]);
+    try {
+      const { publicUrl } = await uploadToVault(file, 'observer-logs');
+      const { data, error } = await supabase.from('observer_logs').insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }]).select();
+      if (!error && data) setEvidence(prev => [data[0] as ObserverLog, ...prev]);
+    } catch (err) {
+      console.error('[Database] Evidence logging failed:', err);
+    }
   };
+  
   const updateEvidence = async (id: string, updates: Partial<ObserverLog>) => {
-    const { data, error } = await supabase.from('observer_logs').update(updates).eq('id', id).select();
-    if (!error && data) setEvidence(prev => prev.map(e => e.id === id ? data[0] as ObserverLog : e));
+    try {
+      const { data, error } = await supabase.from('observer_logs').update(updates).eq('id', id).select();
+      if (!error && data) setEvidence(prev => prev.map(e => e.id === id ? data[0] as ObserverLog : e));
+    } catch (err) {
+      console.error('[Database] Evidence update failed:', err);
+    }
   };
+  
   const deleteEvidence = async (id: string) => {
-    await supabase.from('observer_logs').delete().eq('id', id);
-    setEvidence(prev => prev.filter(e => e.id !== id));
+    try {
+      await supabase.from('observer_logs').delete().eq('id', id);
+      setEvidence(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      console.error('[Database] Evidence deletion failed:', err);
+    }
   };
+  
   const loadFromBackup = (data: ObserverLog[]) => { setEvidence(data); };
   return { evidence, addEvidence, updateEvidence, deleteEvidence, loadFromBackup };
 };
@@ -201,9 +268,14 @@ export const useNexusFiles = () => {
   const [files, setFiles] = useState<NexusFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const fetchFiles = useCallback(async () => {
-    const { data, error } = await supabase.from('files').select('*').order('created_at', { ascending: false });
-    if (!error && data) setFiles(data);
+    try {
+      const { data, error } = await supabase.from('files').select('*').order('created_at', { ascending: false });
+      if (!error && data) setFiles(data);
+    } catch (err) {
+      console.error('[Database] Files fetch failed:', err);
+    }
   }, []);
+  
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
   const uploadFile = async (file: File) => {
@@ -212,12 +284,20 @@ export const useNexusFiles = () => {
       const { publicUrl, path } = await uploadToVault(file, 'nexus-air');
       const { data, error } = await supabase.from('files').insert([{ name: file.name, size: file.size, type: file.type, url: publicUrl, storage_path: path }]).select();
       if (!error && data) setFiles(prev => [data[0] as NexusFile, ...prev]);
+    } catch (err) {
+      console.error('[Database] File upload failed:', err);
     } finally { setUploading(false); }
   };
+  
   const deleteFile = async (id: string, path: string) => {
-    await deleteFromVault(path, 'nexus-air');
-    await supabase.from('files').delete().eq('id', id);
-    setFiles(prev => prev.filter(f => f.id !== id));
+    try {
+      await deleteFromVault(path, 'nexus-air');
+      await supabase.from('files').delete().eq('id', id);
+      setFiles(prev => prev.filter(f => f.id !== id));
+    } catch (err) {
+      console.error('[Database] File deletion failed:', err);
+    }
   };
+  
   return { files, uploading, uploadFile, deleteFile };
 };

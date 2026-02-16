@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../lib/constants';
@@ -31,7 +32,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Dynamic Island Spring Physics
   const islandSpring = {
-    type: "spring",
+    // Explicitly set as const to satisfy framer-motion's literal type requirements
+    type: "spring" as const,
     stiffness: 300,
     damping: 25,
     mass: 0.8

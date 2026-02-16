@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // --- Configuration ---
@@ -7,8 +8,22 @@ export const supabaseAnonKey = 'sb_publishable_Dc20iGatEqfX4Njz-ye1lQ_bfhJwVMI';
 
 console.log('[System] Initializing Nexus Database Link (Hardcoded)...');
 
-// Initialize client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/**
+ * Initialize Supabase client.
+ * Using native window.fetch directly often bypasses sandbox interceptors 
+ * that cause 'Failed to fetch' errors in blob-origin environments.
+ */
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+    },
+    global: {
+        // Fix: Explicitly define parameters to avoid spread argument tuple error in fetch implementation
+        fetch: (input, init) => window.fetch(input, init),
+    }
+});
 
 export const isSupabaseConfigured = true;
 
@@ -16,17 +31,20 @@ export const isSupabaseConfigured = true;
 export const checkConnection = async (): Promise<boolean> => {
     if (!supabase) return false;
     try {
-        // Simple query to verify connectivity. Table existence is secondary to server response.
+        // Simple query to verify connectivity to the public 'links' table.
         const { error } = await supabase.from('links').select('id').limit(1);
-        const isOnline = !error || ['PGRST116', 'PGRST204', '42P01'].includes(error.code);
         
-        if (isOnline) {
-             console.log('[System] Database Connection: ONLINE');
+        if (error) {
+            console.warn('[System] Database Link Check Error:', error.message);
+            // If the error message is generic, the network might still be the culprit.
+            return false;
         }
-        return isOnline;
+
+        console.log('[System] Database Connection: ONLINE');
+        return true;
     } catch (e) {
-        console.error('[System] Connection Probe Failed:', e);
-        return true; // Fallback to avoid UI lock
+        console.error('[System] Connection Probe Failed (Network Error):', e);
+        return false; 
     }
 };
 

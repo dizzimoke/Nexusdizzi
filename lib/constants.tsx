@@ -3,7 +3,8 @@ import React from 'react';
 
 // Apple-style Spring Physics (Optimized for "Alive" feel)
 export const SPRING_CONFIG = {
-  type: "spring",
+  // Use as const to ensure literal type "spring" is preserved for framer-motion
+  type: "spring" as const,
   stiffness: 180,
   damping: 20,
   mass: 1,
@@ -11,7 +12,8 @@ export const SPRING_CONFIG = {
 
 // Bouncier spring for micro-interactions
 export const SPRING_BOUNCY = {
-  type: "spring",
+  // Use as const to ensure literal type "spring" is preserved for framer-motion
+  type: "spring" as const,
   stiffness: 300,
   damping: 20,
 };
@@ -56,7 +58,7 @@ export const Icons = {
   ),
   AirPlay: (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6a1 1 0 0 0-1-1h-4a1 1 0 0 0-1-1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
       <path d="M12 2v2" />
       <path d="M12 20v2" />
       <path d="M20 12h2" />
