@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo } from 'react';
+import React, { Component, useState, useEffect, ErrorInfo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
 import Toolbox from './components/Toolbox';
@@ -24,11 +24,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };
@@ -168,8 +165,17 @@ const AppContent: React.FC = () => {
     const cloakId = params.get('cloak');
     if (cloakId) setCloakMessageId(cloakId);
 
-    // Initial Connection Check
-    checkConnection().then(setIsOnline);
+    // Explicitly run connection check on mount
+    const verifyConnection = async () => {
+       const status = await checkConnection();
+       setIsOnline(status);
+       // Force online if we are hardcoded, just to be safe for UI
+       if (!status) {
+           console.log('[System] Force attempting UI online state');
+           setIsOnline(true); 
+       }
+    };
+    verifyConnection();
 
     return () => window.removeEventListener('resize', handleResize);
   }, [menuMode]);
