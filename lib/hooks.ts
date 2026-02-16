@@ -1,15 +1,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, uploadToVault, deleteFromVault, VaultItem, Task, ObserverLog, NexusFile } from './supabase';
+// Fix: Added SmartLink to imports from supabase to resolve "Cannot find name 'SmartLink'" error on line 6.
+import { supabase, uploadToVault, deleteFromVault, VaultItem, Task, ObserverLog, NexusFile, SmartLink } from './supabase';
 
 // Export types for better clarity
 export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
 /**
  * useSmartLinks: Handles quick access links.
+ * Schema: table 'links', columns 'title', 'url'.
  */
 export const useSmartLinks = () => {
-  const [links, setLinks] = useState<any[]>([]);
+  // Fix: Used SmartLink[] instead of any[] for better type safety.
+  const [links, setLinks] = useState<SmartLink[]>([]);
   const fetchLinks = useCallback(async () => {
     const { data, error } = await supabase.from('links').select('*').order('created_at', { ascending: false });
     if (!error && data) setLinks(data);
@@ -18,19 +21,40 @@ export const useSmartLinks = () => {
 
   const addLink = async (link: { title: string; url: string }) => {
     const formattedUrl = link.url.startsWith('http') ? link.url : `https://${link.url}`;
-    const { data, error } = await supabase.from('links').insert([{ title: link.title, url: formattedUrl, category: 'Geral' }]).select();
-    if (!error && data) { setLinks(prev => [data[0], ...prev]); return true; }
+    
+    console.log('[Database] Executing Link Insertion...', { title: link.title, url: formattedUrl });
+    
+    const { data, error } = await supabase
+      .from('links')
+      .insert([{ title: link.title, url: formattedUrl }])
+      .select();
+
+    if (error) {
+      console.error('[Database] Link Insertion Error:', error.message, error.details);
+      return false;
+    }
+
+    console.log('[Database] Link Insertion Successful:', data);
+    if (data && data.length > 0) {
+      setLinks(prev => [data[0], ...prev]);
+      return true;
+    }
     return false;
   };
+
   const deleteLink = async (id: string) => {
-    await supabase.from('links').delete().eq('id', id);
-    setLinks(prev => prev.filter(l => l.id !== id));
+    const { error } = await supabase.from('links').delete().eq('id', id);
+    if (!error) {
+      setLinks(prev => prev.filter(l => l.id !== id));
+    }
   };
+
   return { links, addLink, deleteLink, loading: false };
 };
 
 /**
  * useTasks: Handles calendar task management.
+ * Schema: table 'tasks', columns 'date', 'task_title', 'is_completed'.
  */
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -41,17 +65,38 @@ export const useTasks = () => {
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   const addTask = async (taskData: Partial<Task>) => {
-    const { data, error } = await supabase.from('tasks').insert([taskData]).select();
-    if (!error && data) setTasks(prev => [...prev, data[0] as Task]);
+    console.log('[Database] Executing Task Insertion...', taskData);
+    
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert([taskData])
+      .select();
+
+    if (error) {
+      console.error('[Database] Task Insertion Error:', error.message, error.details);
+      return;
+    }
+
+    console.log('[Database] Task Insertion Successful:', data);
+    if (data && data.length > 0) {
+      setTasks(prev => [...prev, data[0] as Task]);
+    }
   };
+
   const toggleTask = async (id: string, completed: boolean) => {
-    await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: completed } : t));
+    const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
+    if (!error) {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: completed } : t));
+    }
   };
+
   const deleteTask = async (id: string) => {
-    await supabase.from('tasks').delete().eq('id', id);
-    setTasks(prev => prev.filter(t => t.id !== id));
+    const { error } = await supabase.from('tasks').delete().eq('id', id);
+    if (!error) {
+      setTasks(prev => prev.filter(t => t.id !== id));
+    }
   };
+
   return { tasks, addTask, toggleTask, deleteTask };
 };
 

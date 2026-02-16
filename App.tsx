@@ -25,8 +25,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Explicitly using React.Component to resolve typing issues with this.props and this.state
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Changed inheritance to use 'Component' from the named import to fix "Property 'props' does not exist on type 'ErrorBoundary'" error on line 50.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
