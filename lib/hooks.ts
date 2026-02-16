@@ -1,39 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabase';
 
-// --- 1. VAULT HOOK (Cofre de Arquivos/Senhas) ---
-export const useVaultItems = () => {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchItems = useCallback(async () => {
-    if (!supabase) return;
-    const { data, error } = await supabase
-      .from('vault_items') // Nome da tabela no banco
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (!error && data) setItems(data);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchItems(); }, [fetchItems]);
-
-  const addItem = async (item: any) => {
-    if (!supabase) return;
-    const { data, error } = await supabase.from('vault_items').insert([item]).select();
-    if (!error && data) setItems(prev => [data[0], ...prev]);
-  };
-
-  const deleteItem = async (id: string) => {
-    if (!supabase) return;
-    const { error } = await supabase.from('vault_items').delete().eq('id', id);
-    if (!error) setItems(prev => prev.filter(i => i.id !== id));
-  };
-
-  return { items, loading, addItem, deleteItem };
-};
-
-// --- 2. SMART LINKS HOOK (Links Rápidos) ---
+// --- 1. SMART LINKS (Links Rápidos) ---
 export const useSmartLinks = () => {
   const [links, setLinks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +9,7 @@ export const useSmartLinks = () => {
   const fetchLinks = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase
-      .from('links') // Tabela que você criou
+      .from('links') // Nome da tabela que você criou
       .select('*')
       .order('created_at', { ascending: false });
     if (!error && data) setLinks(data);
@@ -74,7 +42,7 @@ export const useSmartLinks = () => {
   return { links, loading, addLink, deleteLink };
 };
 
-// --- 3. TASKS HOOK (Tarefas/To-Do) ---
+// --- 2. TASKS HOOK (Tarefas / To-Do) ---
 export const useTasks = () => {
   const [tasks, setTasks] = useState<any[]>([]);
 
@@ -104,10 +72,48 @@ export const useTasks = () => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: !completed } : t));
   };
 
-  return { tasks, addTask, toggleTask };
+  const deleteTask = async (id: string) => {
+    if (!supabase) return;
+    await supabase.from('tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  return { tasks, addTask, toggleTask, deleteTask };
 };
 
-// --- 4. CLOAK MESSAGING (Mensagens que se destroem) ---
+// --- 3. VAULT HOOK (Cofre de Itens/Senhas) ---
+export const useVaultItems = () => {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchItems = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('vault_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setItems(data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  const addItem = async (item: any) => {
+    if (!supabase) return;
+    const { data, error } = await supabase.from('vault_items').insert([item]).select();
+    if (!error && data) setItems(prev => [data[0], ...prev]);
+  };
+
+  const deleteItem = async (id: string) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('vault_items').delete().eq('id', id);
+    if (!error) setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  return { items, loading, addItem, deleteItem };
+};
+
+// --- 4. CLOAK MESSAGING (Mensagens Criptografadas) ---
 export const useCloakMessaging = () => {
   const createMessage = async (content: string) => {
     if (!supabase) return null;
@@ -120,5 +126,16 @@ export const useCloakMessaging = () => {
     return data.id;
   };
 
-  return { createMessage };
+  const getMessage = async (id: string) => {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .from('cloak_messages')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error || !data || data.views_left <= 0) return null;
+    return data;
+  };
+
+  return { createMessage, getMessage };
 };
