@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'qrcode';
@@ -32,9 +31,8 @@ const FileShareWidget: React.FC = () => {
      setFile(selectedFile);
      setIsUploading(true);
      setUploadProgress(0);
-     playWhoosh(); // SFX: Start Transfer
+     playWhoosh();
 
-     // Simulate Progress for Visuals
      const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
             if (prev >= 90) {
@@ -46,20 +44,17 @@ const FileShareWidget: React.FC = () => {
      }, 150);
 
      try {
-         // Fix: Added missing bucket argument 'nexus-air' to uploadToVault call
-         const { publicUrl } = await uploadToVault(selectedFile, 'nexus-air');
-         const url = publicUrl;
+         // Bucket is standardized to 'nexus_files' to match Nexus Air cloud storage
+         const { publicUrl } = await uploadToVault(selectedFile, 'nexus_files');
          
-         // Complete
          clearInterval(progressInterval);
          setUploadProgress(100);
-         setShareUrl(url);
+         setShareUrl(publicUrl);
          
-         // Generate QR
-         const qr = await QRCode.toDataURL(url, { margin: 2, width: 256, color: { dark: '#000000', light: '#ffffff' } });
+         const qr = await QRCode.toDataURL(publicUrl, { margin: 2, width: 256, color: { dark: '#000000', light: '#ffffff' } });
          setQrCode(qr);
 
-         playDing(); // SFX: Success
+         playDing();
          showNotification('File Ready for Transfer', 'success');
      } catch (error) {
          console.error(error);
@@ -92,7 +87,6 @@ const FileShareWidget: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col justify-between relative">
-        {/* Main Drop Zone */}
         <AnimatePresence mode="wait">
             {!shareUrl ? (
                 <motion.div
@@ -109,7 +103,6 @@ const FileShareWidget: React.FC = () => {
                        ${isDragging ? 'border-cyan-400 bg-cyan-400/10 scale-[1.02]' : 'border-white/10 hover:border-white/30 hover:bg-white/5'}
                    `}
                 >
-                   {/* Background Pulse Effect on Drag */}
                    {isDragging && (
                        <motion.div 
                           layoutId="drag-pulse"
@@ -120,7 +113,6 @@ const FileShareWidget: React.FC = () => {
                        />
                    )}
 
-                   {/* Icon Animation */}
                    <motion.div
                       animate={isUploading ? { y: [0, -20, 0] } : { y: 0 }}
                       transition={{ repeat: Infinity, duration: 2 }}
@@ -135,7 +127,6 @@ const FileShareWidget: React.FC = () => {
                        )}
                    </motion.div>
 
-                   {/* Text Status */}
                    <div className="text-center relative z-10">
                        <h3 className="text-lg font-bold text-white mb-1">
                            {isUploading ? 'Securing Data...' : (isDragging ? 'Drop to Upload' : 'AirDrop Share')}
@@ -145,7 +136,6 @@ const FileShareWidget: React.FC = () => {
                        </p>
                    </div>
 
-                   {/* Progress Bar */}
                    {isUploading && (
                        <div className="absolute bottom-0 left-0 right-0 h-2 bg-white/5">
                            <motion.div 
@@ -166,13 +156,11 @@ const FileShareWidget: React.FC = () => {
                    exit={{ opacity: 0, scale: 0.9 }}
                    className="flex-1 flex flex-col items-center relative"
                 >
-                    {/* Header */}
                     <div className="text-center mb-6">
                         <h3 className="text-xl font-bold text-white tracking-tight truncate max-w-[200px] mx-auto">{file?.name}</h3>
                         <p className="text-xs text-cyan-400 font-bold uppercase tracking-[0.2em] mt-1">Ready to Scan</p>
                     </div>
 
-                    {/* QR Card - With Pulsating Border */}
                     <div className="bg-white p-4 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative group mb-6 border-[3px] border-cyan-400/50 animate-pulse">
                         <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-400 to-blue-500 rounded-[2.8rem] opacity-50 blur-xl group-hover:opacity-80 transition-opacity" />
                         <div className="relative bg-white rounded-[2rem] overflow-hidden p-2">
@@ -180,7 +168,6 @@ const FileShareWidget: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Footer Actions & Status (Separated) */}
                     <div className="w-full flex flex-col gap-4">
                         <div className="flex items-center justify-center gap-2">
                              <div className="px-3 py-1 bg-white/5 rounded-full backdrop-blur-md border border-white/10 flex items-center gap-2">

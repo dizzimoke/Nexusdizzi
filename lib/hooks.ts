@@ -10,11 +10,10 @@ import {
   SmartLink 
 } from './supabase';
 
-// Export types for component usage
 export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
 /**
- * useSmartLinks: Interface for the 'links' table (columns: title, url)
+ * useSmartLinks: Interface for table 'links' (title, url)
  */
 export const useSmartLinks = () => {
   const [links, setLinks] = useState<SmartLink[]>([]);
@@ -28,12 +27,12 @@ export const useSmartLinks = () => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('[Production DB] Fetch Links Error:', error.message, error.details);
+        console.error('[DB] Fetch Links Error:', error.message);
       } else if (data) {
         setLinks(data);
       }
     } catch (err) {
-      console.error('[Production DB] Failed to fetch links:', err);
+      console.error('[DB] Failed to fetch links:', err);
     }
   }, []);
   
@@ -48,7 +47,7 @@ export const useSmartLinks = () => {
         .select();
 
       if (error) {
-        console.error('[Production DB] Add Link Error:', error.message, error.details);
+        console.error('[DB] Add Link Error:', error.message);
         return false;
       }
       
@@ -57,7 +56,7 @@ export const useSmartLinks = () => {
         return true;
       }
     } catch (err) {
-      console.error('[Production DB] Link addition failed:', err);
+      console.error('[DB] Link addition failed:', err);
       return false;
     } finally {
       setLoading(false);
@@ -68,10 +67,10 @@ export const useSmartLinks = () => {
   const deleteLink = async (id: string) => {
     try {
       const { error } = await supabase.from('links').delete().eq('id', id);
-      if (error) console.error('[Production DB] Delete Link Error:', error.message);
+      if (error) console.error('[DB] Delete Link Error:', error.message);
       else setLinks(prev => prev.filter(l => l.id !== id));
     } catch (err) {
-      console.error('[Production DB] Failed to delete link:', err);
+      console.error('[DB] Failed to delete link:', err);
     }
   };
 
@@ -79,7 +78,7 @@ export const useSmartLinks = () => {
 };
 
 /**
- * useVaultItems: Interface for 'vault_items' table (Secrets management)
+ * useVaultItems: Interface for 'vault_items' table
  */
 export const useVaultItems = () => {
   const [items, setItems] = useState<VaultItem[]>([]);
@@ -92,12 +91,12 @@ export const useVaultItems = () => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('[Production DB] Fetch Vault Items Error:', error.message);
+        console.error('[DB] Fetch Vault Items Error:', error.message);
       } else if (data) {
         setItems(data);
       }
     } catch (err) {
-      console.error('[Production DB] Failed to fetch vault items:', err);
+      console.error('[DB] Failed to fetch vault items:', err);
     }
   }, []);
   
@@ -111,12 +110,12 @@ export const useVaultItems = () => {
         .select();
 
       if (error) {
-        console.error('[Production DB] Add Vault Item Error:', error.message, error.details);
+        console.error('[DB] Add Vault Item Error:', error.message);
       } else if (data && data.length > 0) {
         setItems(prev => [data[0], ...prev]);
       }
     } catch (err) {
-      console.error('[Production DB] Failed to add vault item:', err);
+      console.error('[DB] Failed to add vault item:', err);
     }
   };
   
@@ -128,20 +127,20 @@ export const useVaultItems = () => {
         .eq('id', id)
         .select();
       
-      if (error) console.error('[Production DB] Update Vault Item Error:', error.message);
+      if (error) console.error('[DB] Update Vault Item Error:', error.message);
       else if (data && data.length > 0) setItems(prev => prev.map(i => i.id === id ? data[0] : i));
     } catch (err) {
-      console.error('[Production DB] Failed to update vault item:', err);
+      console.error('[DB] Failed to update vault item:', err);
     }
   };
   
   const deleteItem = async (id: string) => {
     try {
       const { error } = await supabase.from('vault_items').delete().eq('id', id);
-      if (error) console.error('[Production DB] Delete Vault Item Error:', error.message);
+      if (error) console.error('[DB] Delete Vault Item Error:', error.message);
       else setItems(prev => prev.filter(i => i.id !== id));
     } catch (err) {
-      console.error('[Production DB] Failed to delete vault item:', err);
+      console.error('[DB] Failed to delete vault item:', err);
     }
   };
   
@@ -149,7 +148,7 @@ export const useVaultItems = () => {
 };
 
 /**
- * useObserver: Visual Intelligence logs (table: observations, bucket: vault)
+ * useObserver: Visual Intel (table: observations, bucket: vault)
  */
 export const useObserver = () => {
   const [evidence, setEvidence] = useState<ObserverLog[]>([]);
@@ -162,12 +161,12 @@ export const useObserver = () => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('[Production DB] Fetch Observations Error:', error.message);
+        console.error('[DB] Fetch Observations Error:', error.message);
       } else if (data) {
         setEvidence(data);
       }
     } catch (err) {
-      console.error('[Production DB] Failed to fetch observations:', err);
+      console.error('[DB] Failed to fetch observations:', err);
     }
   }, []);
   
@@ -175,35 +174,31 @@ export const useObserver = () => {
 
   const addEvidence = async (file: File) => {
     try {
-      // 1. Upload the raw image file to the 'vault' storage bucket
       const { publicUrl } = await uploadToVault(file, 'vault');
-      
-      // 2. Insert the resulting metadata into the 'observations' database table
       const { data, error } = await supabase
         .from('observations')
         .insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }])
         .select();
 
       if (error) {
-        console.error('[Production DB] Observation Metadata Insertion Error:', error.message);
+        console.error('[DB] Observation Meta Error:', error.message);
         throw error;
       }
       
       if (data && data.length > 0) setEvidence(prev => [data[0], ...prev]);
     } catch (err) {
-      console.error('[Production DB] Failed to add visual evidence:', err);
+      console.error('[DB] Failed to add visual evidence:', err);
       throw err;
     }
   };
   
   const deleteEvidence = async (id: string) => {
     try {
-      // Note: In production, you would also delete the storage file, but requiring storage_path in metadata.
       const { error } = await supabase.from('observations').delete().eq('id', id);
-      if (error) console.error('[Production DB] Delete Observation Error:', error.message);
+      if (error) console.error('[DB] Delete Observation Error:', error.message);
       else setEvidence(prev => prev.filter(e => e.id !== id));
     } catch (err) {
-      console.error('[Production DB] Failed to delete evidence:', err);
+      console.error('[DB] Failed to delete evidence:', err);
     }
   };
 
@@ -215,10 +210,10 @@ export const useObserver = () => {
         .eq('id', id)
         .select();
       
-      if (error) console.error('[Production DB] Update Observation Error:', error.message);
+      if (error) console.error('[DB] Update Observation Error:', error.message);
       else if (data && data.length > 0) setEvidence(prev => prev.map(e => e.id === id ? data[0] : e));
     } catch (err) {
-      console.error('[Production DB] Failed to update evidence:', err);
+      console.error('[DB] Failed to update evidence:', err);
     }
   };
   
@@ -227,7 +222,7 @@ export const useObserver = () => {
 };
 
 /**
- * useNexusFiles: Cloud file system (table: files, bucket: nexus_files)
+ * useNexusFiles: Cloud Storage (table: files, bucket: nexus_files)
  */
 export const useNexusFiles = () => {
   const [files, setFiles] = useState<NexusFile[]>([]);
@@ -241,12 +236,12 @@ export const useNexusFiles = () => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('[Production DB] Fetch Files Error:', error.message);
+        console.error('[DB] Fetch Files Error:', error.message);
       } else if (data) {
         setFiles(data);
       }
     } catch (err) {
-      console.error('[Production DB] Failed to fetch cloud files:', err);
+      console.error('[DB] Failed to fetch cloud files:', err);
     }
   }, []);
   
@@ -255,10 +250,7 @@ export const useNexusFiles = () => {
   const uploadFile = async (file: File) => {
     setUploading(true);
     try {
-      // 1. Upload to storage bucket 'nexus_files'
       const { publicUrl, path } = await uploadToVault(file, 'nexus_files');
-      
-      // 2. Store corresponding metadata in 'files' table
       const { data, error } = await supabase
         .from('files')
         .insert([{ 
@@ -271,13 +263,13 @@ export const useNexusFiles = () => {
         .select();
 
       if (error) {
-        console.error('[Production DB] File Metadata Insertion Error:', error.message);
+        console.error('[DB] File Meta Error:', error.message);
         throw error;
       }
       
       if (data && data.length > 0) setFiles(prev => [data[0], ...prev]);
     } catch (err) {
-      console.error('[Production DB] Cloud file upload failed:', err);
+      console.error('[DB] Cloud file upload failed:', err);
       throw err;
     } finally {
       setUploading(false);
@@ -288,10 +280,10 @@ export const useNexusFiles = () => {
     try {
       await deleteFromVault(path, 'nexus_files');
       const { error } = await supabase.from('files').delete().eq('id', id);
-      if (error) console.error('[Production DB] Delete File Error:', error.message);
+      if (error) console.error('[DB] Delete File Error:', error.message);
       else setFiles(prev => prev.filter(f => f.id !== id));
     } catch (err) {
-      console.error('[Production DB] Cloud file deletion failed:', err);
+      console.error('[DB] Cloud file deletion failed:', err);
     }
   };
   
@@ -299,7 +291,7 @@ export const useNexusFiles = () => {
 };
 
 /**
- * useTasks: Mission parameters tracker (table: tasks)
+ * useTasks: Mission Parameters (table: tasks)
  */
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -312,12 +304,12 @@ export const useTasks = () => {
         .order('created_at', { ascending: true });
       
       if (error) {
-        console.error('[Production DB] Fetch Tasks Error:', error.message);
+        console.error('[DB] Fetch Tasks Error:', error.message);
       } else if (data) {
         setTasks(data);
       }
     } catch (err) {
-      console.error('[Production DB] Failed to fetch tasks:', err);
+      console.error('[DB] Failed to fetch tasks:', err);
     }
   }, []);
   
@@ -330,30 +322,30 @@ export const useTasks = () => {
         .insert([taskData])
         .select();
       
-      if (error) console.error('[Production DB] Add Task Error:', error.message);
+      if (error) console.error('[DB] Add Task Error:', error.message);
       else if (data && data.length > 0) setTasks(prev => [...prev, data[0] as Task]);
     } catch (err) {
-      console.error('[Production DB] Task addition failed:', err);
+      console.error('[DB] Task addition failed:', err);
     }
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
     try {
       const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
-      if (error) console.error('[Production DB] Toggle Task Error:', error.message);
+      if (error) console.error('[DB] Toggle Task Error:', error.message);
       else setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: completed } : t));
     } catch (err) {
-      console.error('[Production DB] Task toggle failed:', err);
+      console.error('[DB] Task toggle failed:', err);
     }
   };
 
   const deleteTask = async (id: string) => {
     try {
       const { error } = await supabase.from('tasks').delete().eq('id', id);
-      if (error) console.error('[Production DB] Delete Task Error:', error.message);
+      if (error) console.error('[DB] Delete Task Error:', error.message);
       else setTasks(prev => prev.filter(t => t.id !== id));
     } catch (err) {
-      console.error('[Production DB] Task deletion failed:', err);
+      console.error('[DB] Task deletion failed:', err);
     }
   };
 
@@ -361,7 +353,7 @@ export const useTasks = () => {
 };
 
 /**
- * useGhostMode: UI blurring based on inactivity.
+ * useGhostMode: UI Blurring
  */
 export const useGhostMode = (timeout: number, active: boolean) => {
   const [isGhost, setIsGhost] = useState(false);
@@ -377,7 +369,7 @@ export const useGhostMode = (timeout: number, active: boolean) => {
 };
 
 /**
- * useCloakMessaging: Ephemeral messaging via localStorage.
+ * useCloakMessaging: Local Ephemeral Messaging
  */
 export const useCloakMessaging = () => {
   const createMessage = (content: string, type: string, burnTimer: number) => {
