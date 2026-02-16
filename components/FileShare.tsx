@@ -46,7 +46,8 @@ const FileShareWidget: React.FC = () => {
      }, 150);
 
      try {
-         const { publicUrl } = await uploadToVault(selectedFile);
+         // Fix: Added missing bucket argument 'nexus-air' to uploadToVault call
+         const { publicUrl } = await uploadToVault(selectedFile, 'nexus-air');
          const url = publicUrl;
          
          // Complete
