@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useEffect, ErrorInfo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
@@ -24,7 +25,8 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Explicitly using React.Component to resolve typing issues with this.props and this.state
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {

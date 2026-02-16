@@ -1,10 +1,13 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from './supabase';
+import { supabase, uploadToVault, deleteFromVault, VaultItem, Task, ObserverLog, NexusFile } from './supabase';
 
-// Mock de tipos para evitar erro de compilação nos outros arquivos
-export type SmartLink = { id: string; title: string; url: string };
-export type Task = { id: string; task_title: string; is_completed: boolean };
+// Export types for better clarity
+export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
+/**
+ * useSmartLinks: Handles quick access links.
+ */
 export const useSmartLinks = () => {
   const [links, setLinks] = useState<any[]>([]);
   const fetchLinks = useCallback(async () => {
@@ -26,25 +29,150 @@ export const useSmartLinks = () => {
   return { links, addLink, deleteLink, loading: false };
 };
 
+/**
+ * useTasks: Handles calendar task management.
+ */
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const fetchTasks = useCallback(async () => {
     const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
     if (!error && data) setTasks(data);
   }, []);
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  const addTask = async (title: string) => {
-    const { data, error } = await supabase.from('tasks').insert([{ task_title: title, is_completed: false }]).select();
-    if (!error && data) setTasks(prev => [...prev, data[0]]);
+  const addTask = async (taskData: Partial<Task>) => {
+    const { data, error } = await supabase.from('tasks').insert([taskData]).select();
+    if (!error && data) setTasks(prev => [...prev, data[0] as Task]);
   };
   const toggleTask = async (id: string, completed: boolean) => {
-    await supabase.from('tasks').update({ is_completed: !completed }).eq('id', id);
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: !completed } : t));
+    await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, is_completed: completed } : t));
   };
-  return { tasks, addTask, toggleTask };
+  const deleteTask = async (id: string) => {
+    await supabase.from('tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+  return { tasks, addTask, toggleTask, deleteTask };
 };
 
-// Hooks vazios para os outros módulos não darem erro de import
-export const useVaultItems = () => ({ items: [], addItem: () => {}, deleteItem: () => {}, loading: false });
-export const useCloakMessaging = () => ({ createMessage: async () => '' });
+/**
+ * useVaultItems: Secure storage for credentials.
+ */
+export const useVaultItems = () => {
+  const [items, setItems] = useState<VaultItem[]>([]);
+  const fetchItems = useCallback(async () => {
+    const { data, error } = await supabase.from('vault').select('*').order('created_at', { ascending: false });
+    if (!error && data) setItems(data);
+  }, []);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  const addItem = async (item: Partial<VaultItem>) => {
+    const { data, error } = await supabase.from('vault').insert([item]).select();
+    if (!error && data) setItems(prev => [data[0] as VaultItem, ...prev]);
+  };
+  const updateItem = async (id: string, updates: Partial<VaultItem>) => {
+    const { data, error } = await supabase.from('vault').update(updates).eq('id', id).select();
+    if (!error && data) setItems(prev => prev.map(i => i.id === id ? data[0] as VaultItem : i));
+  };
+  const deleteItem = async (id: string) => {
+    await supabase.from('vault').delete().eq('id', id);
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+  return { items, addItem, updateItem, deleteItem, loading: false };
+};
+
+/**
+ * useGhostMode: Blurs content after period of inactivity.
+ */
+export const useGhostMode = (timeout: number, active: boolean) => {
+  const [isGhost, setIsGhost] = useState(false);
+  useEffect(() => {
+    if (!active) { setIsGhost(false); return; }
+    let t = setTimeout(() => setIsGhost(true), timeout);
+    const reset = () => { setIsGhost(false); clearTimeout(t); t = setTimeout(() => setIsGhost(true), timeout); };
+    window.addEventListener('mousemove', reset);
+    window.addEventListener('keydown', reset);
+    return () => { clearTimeout(t); window.removeEventListener('mousemove', reset); window.removeEventListener('keydown', reset); };
+  }, [active, timeout]);
+  return isGhost;
+};
+
+/**
+ * useCloakMessaging: Ephemeral, self-destructing messages via localStorage.
+ */
+export const useCloakMessaging = () => {
+  const createMessage = (content: string, type: string, burnTimer: number) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    const msg = { id, content, type, burnTimer, created_at: Date.now() };
+    const stored = JSON.parse(localStorage.getItem('nexus_cloak') || '{}');
+    stored[id] = msg;
+    localStorage.setItem('nexus_cloak', JSON.stringify(stored));
+    return id;
+  };
+  const getMessage = async (id: string) => {
+    const stored = JSON.parse(localStorage.getItem('nexus_cloak') || '{}');
+    return stored[id] || null;
+  };
+  const burnMessage = async (id: string) => {
+    const stored = JSON.parse(localStorage.getItem('nexus_cloak') || '{}');
+    delete stored[id];
+    localStorage.setItem('nexus_cloak', JSON.stringify(stored));
+  };
+  return { createMessage, getMessage, burnMessage };
+};
+
+/**
+ * useObserver: Handles visual intelligence logs.
+ */
+export const useObserver = () => {
+  const [evidence, setEvidence] = useState<ObserverLog[]>([]);
+  const fetchEvidence = useCallback(async () => {
+    const { data, error } = await supabase.from('observer_logs').select('*').order('created_at', { ascending: false });
+    if (!error && data) setEvidence(data);
+  }, []);
+  useEffect(() => { fetchEvidence(); }, [fetchEvidence]);
+
+  const addEvidence = async (file: File) => {
+    const { publicUrl } = await uploadToVault(file, 'observer-logs');
+    const { data, error } = await supabase.from('observer_logs').insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }]).select();
+    if (!error && data) setEvidence(prev => [data[0] as ObserverLog, ...prev]);
+  };
+  const updateEvidence = async (id: string, updates: Partial<ObserverLog>) => {
+    const { data, error } = await supabase.from('observer_logs').update(updates).eq('id', id).select();
+    if (!error && data) setEvidence(prev => prev.map(e => e.id === id ? data[0] as ObserverLog : e));
+  };
+  const deleteEvidence = async (id: string) => {
+    await supabase.from('observer_logs').delete().eq('id', id);
+    setEvidence(prev => prev.filter(e => e.id !== id));
+  };
+  const loadFromBackup = (data: ObserverLog[]) => { setEvidence(data); };
+  return { evidence, addEvidence, updateEvidence, deleteEvidence, loadFromBackup };
+};
+
+/**
+ * useNexusFiles: Cloud storage file management.
+ */
+export const useNexusFiles = () => {
+  const [files, setFiles] = useState<NexusFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fetchFiles = useCallback(async () => {
+    const { data, error } = await supabase.from('files').select('*').order('created_at', { ascending: false });
+    if (!error && data) setFiles(data);
+  }, []);
+  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const { publicUrl, path } = await uploadToVault(file, 'nexus-air');
+      const { data, error } = await supabase.from('files').insert([{ name: file.name, size: file.size, type: file.type, url: publicUrl, storage_path: path }]).select();
+      if (!error && data) setFiles(prev => [data[0] as NexusFile, ...prev]);
+    } finally { setUploading(false); }
+  };
+  const deleteFile = async (id: string, path: string) => {
+    await deleteFromVault(path, 'nexus-air');
+    await supabase.from('files').delete().eq('id', id);
+    setFiles(prev => prev.filter(f => f.id !== id));
+  };
+  return { files, uploading, uploadFile, deleteFile };
+};
