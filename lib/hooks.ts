@@ -8,7 +8,7 @@ import {
   ObserverLog,
   NexusFile,
   SmartLink,
-  isPreview
+  isPreviewEffective
 } from './supabase';
 
 export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
@@ -22,28 +22,36 @@ const makeId = () =>
 
 /**
  * --- DUAL-ENGINE PERSISTENCE UTILS ---
- * Storage Keys for Preview / Cache
  */
 const getStorageData = (key: string) => {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(`nexus_v3_${key}`);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(`nexus_v3_${key}`);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error(`[System] Storage corruption in ${key}:`, e);
+    return [];
+  }
 };
 
 const setStorageData = (key: string, data: any[]) => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(`nexus_v3_${key}`, JSON.stringify(data));
+  try {
+    localStorage.setItem(`nexus_v3_${key}`, JSON.stringify(data));
+  } catch (e) {
+    console.error(`[System] Failed to write to storage ${key}:`, e);
+  }
 };
 
 /**
  * useSmartLinks: Dual-Engine
  */
 export const useSmartLinks = () => {
-  const [links, setLinks] = useState<SmartLink[]>(getStorageData('links'));
+  const [links, setLinks] = useState<SmartLink[]>(() => getStorageData('links'));
   const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       setLinks(getStorageData('links'));
       setLoading(false);
       return;
@@ -62,7 +70,7 @@ export const useSmartLinks = () => {
         setStorageData('links', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Links Failed:', err?.message || err);
+      console.warn('[System] Cloud Sync Offline (Links). Using Cache.');
       setLinks(getStorageData('links'));
     } finally {
       setLoading(false);
@@ -74,7 +82,7 @@ export const useSmartLinks = () => {
   }, [fetchLinks]);
 
   const addLink = async (link: { title: string; url: string }) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const localItem: SmartLink = {
         id: makeId(),
         ...link,
@@ -87,20 +95,18 @@ export const useSmartLinks = () => {
     }
 
     try {
-      // ✅ não depende de insert().select()
       const { error } = await supabase.from('links').insert([link]);
       if (error) throw error;
-
-      await fetchLinks(); // ✅ garante que aparece
+      await fetchLinks(); 
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Add Link Failed:', err?.message || err);
+      console.error('[System] Add Link Failed:', err?.message || err);
       return false;
     }
   };
 
   const deleteLink = async (id: string) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = links.filter((l) => l.id !== id);
       setLinks(updated);
       setStorageData('links', updated);
@@ -112,8 +118,7 @@ export const useSmartLinks = () => {
       if (error) throw error;
       await fetchLinks();
     } catch (err: any) {
-      console.error('[Production DB] Delete Link Failed:', err?.message || err);
-      // fallback local update
+      console.error('[System] Delete Link Failed:', err?.message || err);
       const updated = links.filter((l) => l.id !== id);
       setLinks(updated);
       setStorageData('links', updated);
@@ -127,11 +132,11 @@ export const useSmartLinks = () => {
  * useVaultItems: Dual-Engine
  */
 export const useVaultItems = () => {
-  const [items, setItems] = useState<VaultItem[]>(getStorageData('vault'));
+  const [items, setItems] = useState<VaultItem[]>(() => getStorageData('vault'));
   const [loading, setLoading] = useState(true);
 
   const fetchItems = useCallback(async () => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       setItems(getStorageData('vault'));
       setLoading(false);
       return;
@@ -150,7 +155,7 @@ export const useVaultItems = () => {
         setStorageData('vault', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Vault Failed:', err?.message || err);
+      console.warn('[System] Cloud Sync Offline (Vault). Using Cache.');
       setItems(getStorageData('vault'));
     } finally {
       setLoading(false);
@@ -162,7 +167,7 @@ export const useVaultItems = () => {
   }, [fetchItems]);
 
   const addItem = async (item: Partial<VaultItem>) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const localItem: VaultItem = {
         id: makeId(),
         title: item.title || '',
@@ -183,17 +188,16 @@ export const useVaultItems = () => {
     try {
       const { error } = await supabase.from('vault_items').insert([item]);
       if (error) throw error;
-
       await fetchItems();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Add Vault Item Failed:', err?.message || err);
+      console.error('[System] Add Vault Item Failed:', err?.message || err);
       return false;
     }
   };
 
   const updateItem = async (id: string, updates: Partial<VaultItem>) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = items.map((i) => (i.id === id ? { ...i, ...updates } : i));
       setItems(updated);
       setStorageData('vault', updated);
@@ -203,12 +207,10 @@ export const useVaultItems = () => {
     try {
       const { error } = await supabase.from('vault_items').update(updates).eq('id', id);
       if (error) throw error;
-
       await fetchItems();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Update Vault Item Failed:', err?.message || err);
-      // fallback local update
+      console.error('[System] Update Vault Item Failed:', err?.message || err);
       const updated = items.map((i) => (i.id === id ? { ...i, ...updates } : i));
       setItems(updated);
       setStorageData('vault', updated);
@@ -217,7 +219,7 @@ export const useVaultItems = () => {
   };
 
   const deleteItem = async (id: string) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = items.filter((i) => i.id !== id);
       setItems(updated);
       setStorageData('vault', updated);
@@ -227,12 +229,10 @@ export const useVaultItems = () => {
     try {
       const { error } = await supabase.from('vault_items').delete().eq('id', id);
       if (error) throw error;
-
       await fetchItems();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Delete Vault Item Failed:', err?.message || err);
-      // fallback local update
+      console.error('[System] Delete Vault Item Failed:', err?.message || err);
       const updated = items.filter((i) => i.id !== id);
       setItems(updated);
       setStorageData('vault', updated);
@@ -247,11 +247,11 @@ export const useVaultItems = () => {
  * useObserver: Dual-Engine
  */
 export const useObserver = () => {
-  const [evidence, setEvidence] = useState<ObserverLog[]>(getStorageData('observer'));
+  const [evidence, setEvidence] = useState<ObserverLog[]>(() => getStorageData('observer'));
   const [loading, setLoading] = useState(true);
 
   const fetchEvidence = useCallback(async () => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       setEvidence(getStorageData('observer'));
       setLoading(false);
       return;
@@ -270,7 +270,7 @@ export const useObserver = () => {
         setStorageData('observer', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Observations Failed:', err?.message || err);
+      console.warn('[System] Cloud Sync Offline (Observer). Using Cache.');
       setEvidence(getStorageData('observer'));
     } finally {
       setLoading(false);
@@ -285,7 +285,7 @@ export const useObserver = () => {
     try {
       const { publicUrl } = await uploadToVault(file, 'vault');
 
-      if (isPreview) {
+      if (isPreviewEffective) {
         const localItem: ObserverLog = {
           id: makeId(),
           image_url: publicUrl,
@@ -303,17 +303,16 @@ export const useObserver = () => {
         .insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }]);
 
       if (error) throw error;
-
       await fetchEvidence();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Add Evidence Failed:', err?.message || err);
-      return false; // ✅ não quebra a UI
+      console.error('[System] Add Evidence Failed:', err?.message || err);
+      return false;
     }
   };
 
   const deleteEvidence = async (id: string) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = evidence.filter((e) => e.id !== id);
       setEvidence(updated);
       setStorageData('observer', updated);
@@ -323,11 +322,10 @@ export const useObserver = () => {
     try {
       const { error } = await supabase.from('observations').delete().eq('id', id);
       if (error) throw error;
-
       await fetchEvidence();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Delete Evidence Failed:', err?.message || err);
+      console.error('[System] Delete Evidence Failed:', err?.message || err);
       const updated = evidence.filter((e) => e.id !== id);
       setEvidence(updated);
       setStorageData('observer', updated);
@@ -336,7 +334,7 @@ export const useObserver = () => {
   };
 
   const updateEvidence = async (id: string, updates: Partial<ObserverLog>) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = evidence.map((e) => (e.id === id ? { ...e, ...updates } : e));
       setEvidence(updated);
       setStorageData('observer', updated);
@@ -346,11 +344,10 @@ export const useObserver = () => {
     try {
       const { error } = await supabase.from('observations').update(updates).eq('id', id);
       if (error) throw error;
-
       await fetchEvidence();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Update Observation Failed:', err?.message || err);
+      console.error('[System] Update Observation Failed:', err?.message || err);
       const updated = evidence.map((e) => (e.id === id ? { ...e, ...updates } : e));
       setEvidence(updated);
       setStorageData('observer', updated);
@@ -370,12 +367,12 @@ export const useObserver = () => {
  * useNexusFiles: Dual-Engine
  */
 export const useNexusFiles = () => {
-  const [files, setFiles] = useState<NexusFile[]>(getStorageData('files'));
+  const [files, setFiles] = useState<NexusFile[]>(() => getStorageData('files'));
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
   const fetchFiles = useCallback(async () => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       setFiles(getStorageData('files'));
       setLoading(false);
       return;
@@ -394,7 +391,7 @@ export const useNexusFiles = () => {
         setStorageData('files', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Files Failed:', err?.message || err);
+      console.warn('[System] Cloud Sync Offline (Files). Using Cache.');
       setFiles(getStorageData('files'));
     } finally {
       setLoading(false);
@@ -410,7 +407,7 @@ export const useNexusFiles = () => {
     try {
       const { publicUrl, path } = await uploadToVault(file, 'nexus_files');
 
-      if (isPreview) {
+      if (isPreviewEffective) {
         const localItem: NexusFile = {
           id: makeId(),
           name: file.name,
@@ -431,19 +428,18 @@ export const useNexusFiles = () => {
         .insert([{ name: file.name, size: file.size, type: file.type, url: publicUrl, storage_path: path }]);
 
       if (error) throw error;
-
       await fetchFiles();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] File Upload Failed:', err?.message || err);
-      return false; // ✅ não quebra a UI
+      console.error('[System] File Upload Failed:', err?.message || err);
+      return false;
     } finally {
       setUploading(false);
     }
   };
 
   const deleteFile = async (id: string, path: string) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = files.filter((f) => f.id !== id);
       setFiles(updated);
       setStorageData('files', updated);
@@ -454,11 +450,10 @@ export const useNexusFiles = () => {
       await deleteFromVault(path, 'nexus_files');
       const { error } = await supabase.from('files').delete().eq('id', id);
       if (error) throw error;
-
       await fetchFiles();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] File Deletion Error:', err?.message || err);
+      console.error('[System] File Deletion Error:', err?.message || err);
       const updated = files.filter((f) => f.id !== id);
       setFiles(updated);
       setStorageData('files', updated);
@@ -473,11 +468,11 @@ export const useNexusFiles = () => {
  * useTasks: Dual-Engine
  */
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>(getStorageData('tasks'));
+  const [tasks, setTasks] = useState<Task[]>(() => getStorageData('tasks'));
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = useCallback(async () => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       setTasks(getStorageData('tasks'));
       setLoading(false);
       return;
@@ -496,7 +491,7 @@ export const useTasks = () => {
         setStorageData('tasks', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Tasks Failed:', err?.message || err);
+      console.warn('[System] Cloud Sync Offline (Tasks). Using Cache.');
       setTasks(getStorageData('tasks'));
     } finally {
       setLoading(false);
@@ -508,7 +503,7 @@ export const useTasks = () => {
   }, [fetchTasks]);
 
   const addTask = async (taskData: Partial<Task>) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const localItem: Task = {
         id: makeId(),
         date: taskData.date || new Date().toISOString().split('T')[0],
@@ -525,17 +520,16 @@ export const useTasks = () => {
     try {
       const { error } = await supabase.from('tasks').insert([taskData]);
       if (error) throw error;
-
       await fetchTasks();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Add Task Failed:', err?.message || err);
+      console.error('[System] Add Task Failed:', err?.message || err);
       return false;
     }
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = tasks.map((t) => (t.id === id ? { ...t, is_completed: completed } : t));
       setTasks(updated);
       setStorageData('tasks', updated);
@@ -545,11 +539,10 @@ export const useTasks = () => {
     try {
       const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
       if (error) throw error;
-
       await fetchTasks();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Toggle Task Failed:', err?.message || err);
+      console.error('[System] Toggle Task Failed:', err?.message || err);
       const updated = tasks.map((t) => (t.id === id ? { ...t, is_completed: completed } : t));
       setTasks(updated);
       setStorageData('tasks', updated);
@@ -558,7 +551,7 @@ export const useTasks = () => {
   };
 
   const deleteTask = async (id: string) => {
-    if (isPreview) {
+    if (isPreviewEffective) {
       const updated = tasks.filter((t) => t.id !== id);
       setTasks(updated);
       setStorageData('tasks', updated);
@@ -568,11 +561,10 @@ export const useTasks = () => {
     try {
       const { error } = await supabase.from('tasks').delete().eq('id', id);
       if (error) throw error;
-
       await fetchTasks();
       return true;
     } catch (err: any) {
-      console.error('[Production DB] Delete Task Failed:', err?.message || err);
+      console.error('[System] Delete Task Failed:', err?.message || err);
       const updated = tasks.filter((t) => t.id !== id);
       setTasks(updated);
       setStorageData('tasks', updated);
@@ -584,34 +576,23 @@ export const useTasks = () => {
 };
 
 /**
- * useGhostMode: UI Utilities (Unchanged)
+ * useGhostMode: UI Blurring
  */
 export const useGhostMode = (timeout: number, active: boolean) => {
   const [isGhost, setIsGhost] = useState(false);
   useEffect(() => {
-    if (!active) {
-      setIsGhost(false);
-      return;
-    }
+    if (!active) { setIsGhost(false); return; }
     let t = setTimeout(() => setIsGhost(true), timeout);
-    const reset = () => {
-      setIsGhost(false);
-      clearTimeout(t);
-      t = setTimeout(() => setIsGhost(true), timeout);
-    };
+    const reset = () => { setIsGhost(false); clearTimeout(t); t = setTimeout(() => setIsGhost(true), timeout); };
     window.addEventListener('mousemove', reset);
     window.addEventListener('keydown', reset);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('mousemove', reset);
-      window.removeEventListener('keydown', reset);
-    };
+    return () => { clearTimeout(t); window.removeEventListener('mousemove', reset); window.removeEventListener('keydown', reset); };
   }, [active, timeout]);
   return isGhost;
 };
 
 /**
- * useCloakMessaging: Local Ephemeral Messaging (Unchanged)
+ * useCloakMessaging: Local Ephemeral Messaging
  */
 export const useCloakMessaging = () => {
   const createMessage = (content: string, type: string, burnTimer: number) => {

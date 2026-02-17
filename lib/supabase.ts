@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // --- Environment Detection ---
-// Preview = AI Studio / dev hosts (mantive sua lógica)
+// Detect if we are in a sandbox or local dev environment
 export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('aistudio') ||
   window.location.hostname.includes('localhost') ||
@@ -11,25 +11,27 @@ export const isPreview = typeof window !== 'undefined' && (
 );
 
 // --- Production Configuration (Vite ENV) ---
-// ✅ Agora pega da Vercel/Vite: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Use hardcoded fallbacks only if ENV is missing to prevent startup crashes
+const FALLBACK_URL = 'https://placeholder-project.supabase.co';
+const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 
-// Se faltar env, cai em preview para não “quebrar”
-const envMissing = !supabaseUrl || !supabaseAnonKey;
-export const isPreviewEffective = isPreview || envMissing;
+export const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL as string) || FALLBACK_URL;
+export const supabaseAnonKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY as string) || FALLBACK_KEY;
 
-if (envMissing) {
-  console.warn(
-    '⚠️ Supabase env vars ausentes. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (Vercel/Vite).'
-  );
+// Final check to see if we should actually attempt network calls
+const isConfigured = supabaseUrl !== FALLBACK_URL && supabaseAnonKey !== FALLBACK_KEY;
+export const isPreviewEffective = isPreview || !isConfigured;
+
+if (!isConfigured && !isPreview) {
+  console.warn('[System] Supabase credentials missing. Defaulting to Local Storage mode.');
 }
 
 /**
  * Initialize Supabase client.
- * (Se env faltar, cria client "vazio" mas você não deve usar em produção nesse estado)
+ * Using a safer initialization to prevent the "black screen of death" 
+ * caused by module-level exceptions when keys are missing.
  */
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
@@ -102,7 +104,7 @@ export const uploadToVault = async (
     .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
   if (uploadError) {
-    console.error(`[Production DB] Transmission Failure (${bucket}):`, uploadError.message);
+    console.error(`[Uplink] Transmission Failure (${bucket}):`, uploadError.message);
     throw uploadError;
   }
 
@@ -117,7 +119,7 @@ export const uploadToVault = async (
 export const deleteFromVault = async (path: string, bucket: string) => {
   if (isPreviewEffective || path.startsWith('local_temp_')) return;
   const { error } = await supabase.storage.from(bucket).remove([path]);
-  if (error) console.error(`[Production DB] Deletion Error (${bucket}):`, error.message);
+  if (error) console.error(`[Uplink] Deletion Error (${bucket}):`, error.message);
 };
 
 /**
@@ -127,10 +129,8 @@ export const checkConnection = async (): Promise<boolean> => {
   if (isPreviewEffective) return true;
   try {
     const { error } = await supabase.from('links').select('id').limit(1);
-    if (error) console.error('[Supabase] checkConnection failed:', error);
     return !error;
   } catch (e) {
-    console.error('[Supabase] checkConnection exception:', e);
     return false;
   }
 };
