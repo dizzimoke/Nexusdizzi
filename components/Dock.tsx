@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from 'framer-motion';
 import { Icons, SPRING_CONFIG } from '../lib/constants';
@@ -55,14 +54,16 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
         playPop();
     };
 
-    // 7 Items Symmetrical Arc (Studio Removed)
+    // 7 Items Symmetrical Arc (Centered at 90 degrees)
+    // Spacing: ~22 degrees
     const items = [
-        { id: 1, label: 'Vault', icon: Icons.Vault, angle: 170 },    
-        { id: 6, label: 'Air', icon: Icons.AirPlay, angle: 145 }, 
-        { id: 3, label: 'Cloak', icon: Icons.Cloak, angle: 120 },     
-        { id: 0, label: 'Toolbox', icon: Icons.Toolbox, angle: 90 },
-        { id: 5, label: 'Observer', icon: Icons.Aperture, angle: 60 }, 
-        { id: 4, label: 'Sentinel', icon: Icons.Fingerprint, angle: 35 }, 
+        { id: 3, label: 'Cloak', icon: Icons.Cloak, angle: 156 },
+        { id: 1, label: 'Vault', icon: Icons.Vault, angle: 134 },
+        { id: 2, label: 'Links', icon: Icons.Links, angle: 112 },
+        { id: 0, label: 'Toolbox', icon: Icons.Toolbox, angle: 90 }, // Center
+        { id: 6, label: 'Air', icon: Icons.AirPlay, angle: 68 },
+        { id: 4, label: 'Sentinel', icon: Icons.Fingerprint, angle: 46 },
+        { id: 5, label: 'Observer', icon: Icons.Aperture, angle: 24 },
     ];
 
     const radius = 180;
