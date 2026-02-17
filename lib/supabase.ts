@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- Production Environment Logic ---
-// Vite populates these from .env files or hosting provider variables (Vercel)
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// --- Safe Environment Detection ---
+// We use a safe accessor for import.meta.env to prevent "Cannot read properties of undefined" errors
+// in environments where Vite globals aren't injected or during raw ESM execution.
+const env = (import.meta as any).env || {};
+
+export const supabaseUrl = env.VITE_SUPABASE_URL as string;
+export const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string;
 
 // Detection for "Local Only" mode: Triggered if keys are missing or we are in a known sandbox
 export const isSystemConfigured = !!(supabaseUrl && supabaseAnonKey);
@@ -30,7 +33,7 @@ export const supabase = createClient(
 );
 
 if (!useCloudEngine) {
-  console.info('[System] Nexus Pro: Cloud Engine not configured. Operating in Local Engine mode.');
+  console.info('[System] Nexus Pro: Cloud Engine not configured or env missing. Operating in Local Engine mode.');
 } else {
   console.info('[System] Nexus Pro: Cloud Engine detected. Initializing Secure Uplink.');
 }
@@ -124,7 +127,7 @@ export const deleteFromVault = async (path: string, bucket: string) => {
 export const checkConnection = async (): Promise<boolean> => {
   if (!useCloudEngine) return true;
   try {
-    const { error, data } = await supabase.from('links').select('id').limit(1);
+    const { error } = await supabase.from('links').select('id').limit(1);
     if (error) {
       console.error('[System] Cloud Link Test Failed:', error.message);
       return false;
