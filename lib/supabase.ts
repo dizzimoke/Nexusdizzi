@@ -1,35 +1,43 @@
 import { createClient } from '@supabase/supabase-js';
 
 // --- Environment Detection ---
-// Direct requirement: Detect AI Studio or Localhost for Dual-Engine logic.
+// Preview = AI Studio / dev hosts (mantive sua lógica)
 export const isPreview = typeof window !== 'undefined' && (
-  window.location.hostname.includes('aistudio') || 
+  window.location.hostname.includes('aistudio') ||
   window.location.hostname.includes('localhost') ||
   window.location.hostname.includes('127.0.0.1') ||
   window.location.hostname.includes('stackblitz') ||
   window.location.hostname.includes('webcontainer')
 );
 
-// --- Production Configuration ---
-export const supabaseUrl = 'https://vkqkzdzhojmqfjkpfaey.supabase.co';
-export const supabaseAnonKey = 'sb_publishable_Dc20iGatEqfX4Njz-ye1lQ_bfhJwVMI';
+// --- Production Configuration (Vite ENV) ---
+// ✅ Agora pega da Vercel/Vite: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+// Se faltar env, cai em preview para não “quebrar”
+const envMissing = !supabaseUrl || !supabaseAnonKey;
+export const isPreviewEffective = isPreview || envMissing;
+
+if (envMissing) {
+  console.warn(
+    '⚠️ Supabase env vars ausentes. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY (Vercel/Vite).'
+  );
+}
 
 /**
  * Initialize Supabase client.
+ * (Se env faltar, cria client "vazio" mas você não deve usar em produção nesse estado)
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false
-  },
-  global: {
-    fetch: (input, init) => fetch(input, init),
   }
 });
 
 // --- System Types ---
-
 export interface VaultItem {
   id: string;
   title: string;
@@ -76,74 +84,53 @@ export interface NexusFile {
 }
 
 // --- Storage Engine ---
-
-/**
- * uploadToVault: Transmits raw data to Supabase Storage.
- * Dual-Engine: In Preview, returns a local Blob URL to avoid fetch errors.
- */
-export const uploadToVault = async (file: File, bucket: string): Promise<{ publicUrl: string; path: string }> => {
-  if (isPreview) {
-    console.log('[System] Preview Engine: Creating Local Object Link');
+export const uploadToVault = async (
+  file: File,
+  bucket: string
+): Promise<{ publicUrl: string; path: string }> => {
+  if (isPreviewEffective) {
     const localUrl = URL.createObjectURL(file);
     return { publicUrl: localUrl, path: 'local_temp_' + Date.now() };
   }
-
-  if (!supabase) throw new Error("SYSTEM_OFFLINE: Database link not initialized");
 
   const fileExt = file.name.split('.').pop();
   const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
   const filePath = fileName;
 
-  try {
-    const { data, error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-    if (uploadError) {
-      console.error(`[Production DB] Transmission Failure (${bucket}):`, uploadError.message);
-      throw uploadError;
-    }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
-
-    if (!publicUrl) throw new Error("Failed to generate public URL");
-
-    return { publicUrl, path: filePath };
-  } catch (err: any) {
-    console.error(`[Production DB] Critical storage failure in ${bucket}:`, err.message || err);
-    throw err;
+  if (uploadError) {
+    console.error(`[Production DB] Transmission Failure (${bucket}):`, uploadError.message);
+    throw uploadError;
   }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  const publicUrl = data?.publicUrl;
+
+  if (!publicUrl) throw new Error('Failed to generate public URL');
+
+  return { publicUrl, path: filePath };
 };
 
-/**
- * deleteFromVault: Removes an asset from Supabase storage.
- */
 export const deleteFromVault = async (path: string, bucket: string) => {
-  if (isPreview || path.startsWith('local_temp_')) return;
-  try {
-    const { error } = await supabase.storage.from(bucket).remove([path]);
-    if (error) {
-      console.error(`[Production DB] Deletion Error (${bucket}):`, error.message);
-    }
-  } catch (e) {
-    console.error(`[Production DB] Unexpected deletion failure for ${path}:`, e);
-  }
+  if (isPreviewEffective || path.startsWith('local_temp_')) return;
+  const { error } = await supabase.storage.from(bucket).remove([path]);
+  if (error) console.error(`[Production DB] Deletion Error (${bucket}):`, error.message);
 };
 
 /**
  * checkConnection: Health check for database reachability.
  */
 export const checkConnection = async (): Promise<boolean> => {
-  if (isPreview) return true;
+  if (isPreviewEffective) return true;
   try {
     const { error } = await supabase.from('links').select('id').limit(1);
+    if (error) console.error('[Supabase] checkConnection failed:', error);
     return !error;
   } catch (e) {
+    console.error('[Supabase] checkConnection exception:', e);
     return false;
   }
 };
