@@ -1,4 +1,3 @@
-
 import React, { Component, useState, useEffect, ErrorInfo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
@@ -25,7 +24,6 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Using Component directly from the named import and adding a constructor to ensure props and state are correctly inferred.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
@@ -37,16 +35,24 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    console.error("OS CRASHED:", error, errorInfo);
   }
   
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen w-screen flex items-center justify-center bg-black text-red-500 font-mono flex-col gap-4">
-           <Icons.Skull width={48} height={48} />
-           <h1 className="text-xl tracking-[0.2em] font-bold uppercase">System Critical Failure</h1>
-           <button onClick={() => window.location.reload()} className="px-6 py-2 border border-red-500 rounded hover:bg-red-500 hover:text-black transition-colors uppercase text-xs">Reboot System</button>
+        <div className="h-screen w-screen flex items-center justify-center bg-black text-red-500 font-mono flex-col gap-6 p-10 text-center">
+           <Icons.Skull width={64} height={64} className="animate-pulse" />
+           <div className="space-y-2">
+             <h1 className="text-2xl tracking-[0.3em] font-bold uppercase">Critical System Failure</h1>
+             <p className="text-xs opacity-50 uppercase tracking-widest max-w-xs mx-auto">The Nexus kernel has encountered an unrecoverable exception. State has been localized to prevent data loss.</p>
+           </div>
+           <button 
+              onClick={() => window.location.reload()} 
+              className="px-8 py-3 border border-red-500/50 rounded-full hover:bg-red-500 hover:text-black transition-all uppercase text-[10px] font-bold tracking-widest"
+           >
+              Reboot Terminal
+           </button>
         </div>
       );
     }
@@ -56,65 +62,15 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 // --- Theme Configurations ---
 const THEMES = [
-  { 
-    id: 'toolbox',
-    blob1: 'rgba(30, 58, 138, 0.4)', 
-    blob2: 'rgba(19, 78, 74, 0.4)',  
-    blob3: 'rgba(49, 46, 129, 0.3)', 
-    accent: '#3b82f6', 
-    glow: 'rgba(59, 130, 246, 0.5)'
-  },
-  { 
-    id: 'vault',
-    blob1: 'rgba(127, 29, 29, 0.4)', 
-    blob2: 'rgba(88, 28, 135, 0.4)', 
-    blob3: 'rgba(136, 19, 55, 0.3)', 
-    accent: '#ef4444', 
-    glow: 'rgba(239, 68, 68, 0.5)'
-  },
-  { 
-    id: 'links',
-    blob1: 'rgba(6, 78, 59, 0.4)',  
-    blob2: 'rgba(20, 83, 45, 0.4)',  
-    blob3: 'rgba(63, 98, 18, 0.3)',  
-    accent: '#10b981', 
-    glow: 'rgba(16, 185, 129, 0.5)'
-  },
-  { 
-    id: 'cloak',
-    blob1: 'rgba(20, 20, 20, 0.8)', 
-    blob2: 'rgba(10, 10, 10, 0.8)', 
-    blob3: 'rgba(5, 5, 5, 0.8)',    
-    accent: '#ffffff', 
-    glow: 'rgba(255, 255, 255, 0.2)'
-  },
-  { 
-    id: 'sentinel',
-    blob1: 'rgba(180, 83, 9, 0.3)',  
-    blob2: 'rgba(245, 158, 11, 0.2)', 
-    blob3: 'rgba(146, 64, 14, 0.3)',  
-    accent: '#f59e0b', 
-    glow: 'rgba(245, 158, 11, 0.5)'
-  },
-  { 
-    id: 'observer',
-    blob1: 'rgba(20, 83, 45, 0.5)',   
-    blob2: 'rgba(34, 197, 94, 0.15)',  
-    blob3: 'rgba(0, 0, 0, 0.9)',       
-    accent: '#22c55e', 
-    glow: 'rgba(34, 197, 94, 0.5)'
-  },
-  { 
-    id: 'air',
-    blob1: 'rgba(15, 23, 42, 1)', 
-    blob2: 'rgba(2, 6, 23, 1)',   
-    blob3: 'rgba(30, 41, 59, 0.5)', 
-    accent: '#38bdf8', 
-    glow: 'rgba(56, 189, 248, 0.5)'
-  }
+  { id: 'toolbox', blob1: 'rgba(30, 58, 138, 0.4)', blob2: 'rgba(19, 78, 74, 0.4)', blob3: 'rgba(49, 46, 129, 0.3)', accent: '#3b82f6', glow: 'rgba(59, 130, 246, 0.5)' },
+  { id: 'vault', blob1: 'rgba(127, 29, 29, 0.4)', blob2: 'rgba(88, 28, 135, 0.4)', blob3: 'rgba(136, 19, 55, 0.3)', accent: '#ef4444', glow: 'rgba(239, 68, 68, 0.5)' },
+  { id: 'links', blob1: 'rgba(6, 78, 59, 0.4)', blob2: 'rgba(20, 83, 45, 0.4)', blob3: 'rgba(63, 98, 18, 0.3)', accent: '#10b981', glow: 'rgba(16, 185, 129, 0.5)' },
+  { id: 'cloak', blob1: 'rgba(20, 20, 20, 0.8)', blob2: 'rgba(10, 10, 10, 0.8)', blob3: 'rgba(5, 5, 5, 0.8)', accent: '#ffffff', glow: 'rgba(255, 255, 255, 0.2)' },
+  { id: 'sentinel', blob1: 'rgba(180, 83, 9, 0.3)', blob2: 'rgba(245, 158, 11, 0.2)', blob3: 'rgba(146, 64, 14, 0.3)', accent: '#f59e0b', glow: 'rgba(245, 158, 11, 0.5)' },
+  { id: 'observer', blob1: 'rgba(20, 83, 45, 0.5)', blob2: 'rgba(34, 197, 94, 0.15)', blob3: 'rgba(0, 0, 0, 0.9)', accent: '#22c55e', glow: 'rgba(34, 197, 94, 0.5)' },
+  { id: 'air', blob1: 'rgba(15, 23, 42, 1)', blob2: 'rgba(2, 6, 23, 1)', blob3: 'rgba(30, 41, 59, 0.5)', accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.5)' }
 ];
 
-// --- Menu Toggle Component ---
 const MenuToggle = ({ mode, onToggle }: { mode: 'orbital' | 'ghost', onToggle: () => void }) => (
     <motion.button
         initial={{ opacity: 0, y: -20 }}
@@ -136,32 +92,27 @@ const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [cloakMessageId, setCloakMessageId] = useState<string | null>(null);
-  const [zenMode, setZenMode] = useState(false);
-  const [zenPlaylist, setZenPlaylist] = useState('37i9dQZF1DWZeKCadgRdKQ');
   const [isOnline, setIsOnline] = useState(true);
   
-  // --- Menu System State ---
   const [menuMode, setMenuMode] = useState<'orbital' | 'ghost'>(() => {
-      if (typeof window !== 'undefined') {
-          return (localStorage.getItem('nexus_menu_mode') as 'orbital' | 'ghost') || 'orbital';
-      }
+      try {
+          if (typeof window !== 'undefined') {
+              return (localStorage.getItem('nexus_menu_mode') as 'orbital' | 'ghost') || 'orbital';
+          }
+      } catch (e) {}
       return 'orbital';
   });
+  
   const [isMobile, setIsMobile] = useState(false);
-
   const { playClick } = useSound();
-
-  let currentTheme = THEMES[activeTab] || THEMES[0];
+  const currentTheme = THEMES[activeTab] || THEMES[0];
   const [ripples, setRipples] = useState<{x: number, y: number, id: number}[]>([]);
 
-  // Mobile Detection, Connection Check & Deep Linking
   useEffect(() => {
     const handleResize = () => {
         const mobile = window.innerWidth < 1024;
         setIsMobile(mobile);
-        if (mobile && menuMode === 'ghost') {
-            setMenuMode('orbital'); // Force orbital on mobile
-        }
+        if (mobile && menuMode === 'ghost') setMenuMode('orbital');
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -170,15 +121,9 @@ const AppContent: React.FC = () => {
     const cloakId = params.get('cloak');
     if (cloakId) setCloakMessageId(cloakId);
 
-    // Explicitly run connection check on mount
     const verifyConnection = async () => {
        const status = await checkConnection();
        setIsOnline(status);
-       // Force online if we are hardcoded, just to be safe for UI
-       if (!status) {
-           console.log('[System] Force attempting UI online state');
-           setIsOnline(true); 
-       }
     };
     verifyConnection();
 
@@ -201,71 +146,26 @@ const AppContent: React.FC = () => {
     setRipples(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleCloseCloak = () => {
-      window.history.pushState({}, '', window.location.pathname);
-      setCloakMessageId(null);
-  };
-
-  // Determine which navigation to show
-  const showOrbital = isMobile || menuMode === 'orbital';
-  const showGhost = !isMobile && menuMode === 'ghost';
-
   const renderContent = () => {
     switch (activeTab) {
-      case 0: return <Toolbox onFocusChange={setIsFocusMode} zenMode={zenMode} setZenMode={setZenMode} setZenPlaylist={setZenPlaylist} />;
+      case 0: return <Toolbox onFocusChange={setIsFocusMode} />;
       case 1: return <Vault onFocusChange={setIsFocusMode} />;
       case 2: return <SmartLinks onFocusChange={setIsFocusMode} />;
       case 3: return <TheCloak onSimulateReceiver={setCloakMessageId} />;
       case 4: return <TheSentinel onClose={() => setActiveTab(0)} />;
       case 5: return <TheObserver onClose={() => setActiveTab(0)} onNavigate={setActiveTab} />;
       case 6: return <NexusAir onClose={() => setActiveTab(0)} />;
-      default: return <Toolbox onFocusChange={setIsFocusMode} zenMode={zenMode} setZenMode={setZenMode} setZenPlaylist={setZenPlaylist} />;
+      default: return <Toolbox onFocusChange={setIsFocusMode} />;
     }
   };
 
-  const titles = ['Toolbox', 'Vault', 'Links', 'The Cloak', 'Sentinel', 'Observer', 'Nexus Air'];
-  const subtitles = ['Nexus Pro // Workspace', 'Secure Storage', 'Quick Access', 'Encrypted Uplink', '2FA Authenticator', 'Visual Intelligence', 'Cloud File System'];
-
   if (cloakMessageId) {
-      return <CloakViewer messageId={cloakMessageId} onClose={handleCloseCloak} />;
+      return <CloakViewer messageId={cloakMessageId} onClose={() => { setCloakMessageId(null); window.history.pushState({}, '', window.location.pathname); }} />;
   }
 
-  // --- SPECIAL CASE: FULL SCREEN APP (AIR) ---
-  if (activeTab === 6) {
-      return (
-          <div className="fixed inset-0 z-0 flex items-center justify-center bg-slate-950">
-             {/* Global Toggle inside Context */}
-             {!isMobile && <MenuToggle mode={menuMode} onToggle={toggleMenuMode} />}
+  const titles = ['Toolbox', 'Vault', 'Links', 'The Cloak', 'Sentinel', 'Observer', 'Nexus Air'];
+  const subtitles = ['Workspace Hub', 'Secure Vault', 'Quick Links', 'Encrypted Uplink', 'Recovery Sentinel', 'Visual Intel', 'Cloud Air'];
 
-             {/* Navigation Systems */}
-             <AnimatePresence>
-                {showGhost && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                        <GhostSidebar onNavigate={setActiveTab} currentTab={activeTab} />
-                    </motion.div>
-                )}
-             </AnimatePresence>
-
-             {/* Deep Mesh Gradient Background */}
-             <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-black z-0" />
-             <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_50%_50%,_rgba(56,189,248,0.1),transparent_50%)]" />
-             
-             {/* Component Render */}
-             <NexusAir onClose={() => setActiveTab(0)} />
-             
-             {/* Orbital Dock (Conditional) */}
-             <AnimatePresence>
-                {showOrbital && (
-                    <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}>
-                        <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} isFocusMode={false} />
-                    </motion.div>
-                )}
-             </AnimatePresence>
-          </div>
-      );
-  }
-
-  // --- STANDARD LAYOUT ---
   return (
     <div 
       onClick={handleGlobalClick}
@@ -288,12 +188,10 @@ const AppContent: React.FC = () => {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      {/* Global Interface Toggle (Desktop Only) */}
       {!isMobile && <MenuToggle mode={menuMode} onToggle={toggleMenuMode} />}
 
-      {/* Navigation Systems */}
       <AnimatePresence>
-        {showGhost && (
+        {menuMode === 'ghost' && !isMobile && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <GhostSidebar onNavigate={setActiveTab} currentTab={activeTab} />
             </motion.div>
@@ -331,10 +229,10 @@ const AppContent: React.FC = () => {
              <motion.div key={activeTab} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.4, ease: "circOut" }}>
                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white/95 drop-shadow-2xl">{titles[activeTab]}</h1>
                <div className="flex items-center gap-2 mt-2">
-                 <div className={`w-2 h-2 rounded-full animate-pulse`} style={{ backgroundColor: currentTheme.accent }} />
+                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: currentTheme.accent }} />
                  <p className="text-sm text-white/40 font-semibold tracking-[0.2em] uppercase">{subtitles[activeTab]}</p>
                  {!isOnline && (
-                     <span className="ml-4 px-2 py-0.5 bg-red-500/10 border border-red-500/50 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">System Offline</span>
+                     <span className="ml-4 px-2 py-0.5 bg-red-500/10 border border-red-500/50 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">Offline Mode</span>
                  )}
                </div>
              </motion.div>
@@ -350,13 +248,9 @@ const AppContent: React.FC = () => {
         </div>
       </main>
 
-      <AnimatePresence>
-        {showOrbital && (
-            <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}>
-                <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} isFocusMode={isFocusMode} />
-            </motion.div>
-        )}
-      </AnimatePresence>
+      {(!isFocusMode || isMobile) && (
+        <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} isFocusMode={isFocusMode} />
+      )}
     </div>
   );
 };

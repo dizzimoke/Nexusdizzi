@@ -15,24 +15,32 @@ export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
 /**
  * --- DUAL-ENGINE PERSISTENCE UTILS ---
- * Storage Keys for Preview / Cache
  */
 const getStorageData = (key: string) => {
   if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(`nexus_v3_${key}`);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(`nexus_v3_${key}`);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.warn(`[Storage] Failed to read ${key}`, e);
+    return [];
+  }
 };
 
 const setStorageData = (key: string, data: any[]) => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(`nexus_v3_${key}`, JSON.stringify(data));
+  try {
+    localStorage.setItem(`nexus_v3_${key}`, JSON.stringify(data));
+  } catch (e) {
+    console.warn(`[Storage] Failed to write ${key}`, e);
+  }
 };
 
 /**
  * useSmartLinks: Dual-Engine
  */
 export const useSmartLinks = () => {
-  const [links, setLinks] = useState<SmartLink[]>(getStorageData('links'));
+  const [links, setLinks] = useState<SmartLink[]>(() => getStorageData('links'));
   const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
@@ -55,8 +63,7 @@ export const useSmartLinks = () => {
         setStorageData('links', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Links Failed:', err.message || err);
-      // Optional fallback to cache on prod failure
+      console.error('[Production DB] Fetch Links Failed:', err.message);
       setLinks(getStorageData('links'));
     } finally {
       setLoading(false);
@@ -67,11 +74,7 @@ export const useSmartLinks = () => {
 
   const addLink = async (link: { title: string; url: string }) => {
     if (isPreview) {
-      const localItem: SmartLink = { 
-        id: crypto.randomUUID(), 
-        ...link, 
-        created_at: new Date().toISOString() 
-      };
+      const localItem: SmartLink = { id: crypto.randomUUID(), ...link, created_at: new Date().toISOString() };
       const updated = [localItem, ...links];
       setLinks(updated);
       setStorageData('links', updated);
@@ -88,7 +91,7 @@ export const useSmartLinks = () => {
         return true;
       }
     } catch (err: any) {
-      console.error('[Production DB] Add Link Failed:', err.message || err);
+      console.error('[Production DB] Add Link Failed:', err.message);
       return false;
     }
     return false;
@@ -97,11 +100,8 @@ export const useSmartLinks = () => {
   const deleteLink = async (id: string) => {
     if (!isPreview) {
       try {
-        const { error } = await supabase.from('links').delete().eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] Delete Link Failed:', err.message || err);
-      }
+        await supabase.from('links').delete().eq('id', id);
+      } catch (err) {}
     }
     const updated = links.filter(l => l.id !== id);
     setLinks(updated);
@@ -115,7 +115,7 @@ export const useSmartLinks = () => {
  * useVaultItems: Dual-Engine
  */
 export const useVaultItems = () => {
-  const [items, setItems] = useState<VaultItem[]>(getStorageData('vault'));
+  const [items, setItems] = useState<VaultItem[]>(() => getStorageData('vault'));
   const [loading, setLoading] = useState(true);
   
   const fetchItems = useCallback(async () => {
@@ -137,7 +137,7 @@ export const useVaultItems = () => {
         setStorageData('vault', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Vault Failed:', err.message || err);
+      console.error('[Production DB] Fetch Vault Failed:', err.message);
       setItems(getStorageData('vault'));
     } finally {
       setLoading(false);
@@ -173,18 +173,15 @@ export const useVaultItems = () => {
         setStorageData('vault', updated);
       }
     } catch (err: any) {
-      console.error('[Production DB] Add Vault Item Failed:', err.message || err);
+      console.error('[Production DB] Add Vault Item Failed:', err.message);
     }
   };
   
   const updateItem = async (id: string, updates: Partial<VaultItem>) => {
     if (!isPreview) {
       try {
-        const { error } = await supabase.from('vault_items').update(updates).eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] Update Vault Item Failed:', err.message || err);
-      }
+        await supabase.from('vault_items').update(updates).eq('id', id);
+      } catch (err) {}
     }
     const updated = items.map(i => i.id === id ? { ...i, ...updates } : i);
     setItems(updated);
@@ -195,9 +192,7 @@ export const useVaultItems = () => {
     if (!isPreview) {
       try {
         await supabase.from('vault_items').delete().eq('id', id);
-      } catch (err: any) {
-        console.error('[Production DB] Delete Vault Item Failed:', err.message || err);
-      }
+      } catch (err) {}
     }
     const updated = items.filter(i => i.id !== id);
     setItems(updated);
@@ -211,7 +206,7 @@ export const useVaultItems = () => {
  * useObserver: Dual-Engine
  */
 export const useObserver = () => {
-  const [evidence, setEvidence] = useState<ObserverLog[]>(getStorageData('observer'));
+  const [evidence, setEvidence] = useState<ObserverLog[]>(() => getStorageData('observer'));
   const [loading, setLoading] = useState(true);
   
   const fetchEvidence = useCallback(async () => {
@@ -233,7 +228,7 @@ export const useObserver = () => {
         setStorageData('observer', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Observations Failed:', err.message || err);
+      console.error('[Production DB] Fetch Observations Failed:', err.message);
       setEvidence(getStorageData('observer'));
     } finally {
       setLoading(false);
@@ -259,11 +254,7 @@ export const useObserver = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('observations')
-        .insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }])
-        .select();
-
+      const { data, error } = await supabase.from('observations').insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }]).select();
       if (error) throw error;
       if (data) {
         const updated = [data[0], ...evidence];
@@ -271,7 +262,7 @@ export const useObserver = () => {
         setStorageData('observer', updated);
       }
     } catch (err: any) {
-      console.error('[Production DB] Add Evidence Failed:', err.message || err);
+      console.error('[Production DB] Add Evidence Failed:', err.message);
       throw err;
     }
   };
@@ -279,11 +270,8 @@ export const useObserver = () => {
   const deleteEvidence = async (id: string) => {
     if (!isPreview) {
       try {
-        const { error } = await supabase.from('observations').delete().eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] Delete Evidence Failed:', err.message || err);
-      }
+        await supabase.from('observations').delete().eq('id', id);
+      } catch (err) {}
     }
     const updated = evidence.filter(e => e.id !== id);
     setEvidence(updated);
@@ -293,11 +281,8 @@ export const useObserver = () => {
   const updateEvidence = async (id: string, updates: Partial<ObserverLog>) => {
     if (!isPreview) {
       try {
-        const { error } = await supabase.from('observations').update(updates).eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] Update Observation Failed:', err.message || err);
-      }
+        await supabase.from('observations').update(updates).eq('id', id);
+      } catch (err) {}
     }
     const updated = evidence.map(e => e.id === id ? { ...e, ...updates } : e);
     setEvidence(updated);
@@ -315,7 +300,7 @@ export const useObserver = () => {
  * useNexusFiles: Dual-Engine
  */
 export const useNexusFiles = () => {
-  const [files, setFiles] = useState<NexusFile[]>(getStorageData('files'));
+  const [files, setFiles] = useState<NexusFile[]>(() => getStorageData('files'));
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -338,7 +323,7 @@ export const useNexusFiles = () => {
         setStorageData('files', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Files Failed:', err.message || err);
+      console.error('[Production DB] Fetch Files Failed:', err.message);
       setFiles(getStorageData('files'));
     } finally {
       setLoading(false);
@@ -368,11 +353,7 @@ export const useNexusFiles = () => {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('files')
-        .insert([{ name: file.name, size: file.size, type: file.type, url: publicUrl, storage_path: path }])
-        .select();
-
+      const { data, error } = await supabase.from('files').insert([{ name: file.name, size: file.size, type: file.type, url: publicUrl, storage_path: path }]).select();
       if (error) throw error;
       if (data) {
         const updated = [data[0], ...files];
@@ -380,7 +361,7 @@ export const useNexusFiles = () => {
         setStorageData('files', updated);
       }
     } catch (err: any) {
-      console.error('[Production DB] File Upload Failed:', err.message || err);
+      console.error('[Production DB] File Upload Failed:', err.message);
       throw err;
     } finally {
       setUploading(false);
@@ -391,11 +372,8 @@ export const useNexusFiles = () => {
     if (!isPreview) {
       try {
         await deleteFromVault(path, 'nexus_files');
-        const { error } = await supabase.from('files').delete().eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] File Deletion Error:', err.message || err);
-      }
+        await supabase.from('files').delete().eq('id', id);
+      } catch (err) {}
     }
     const updated = files.filter(f => f.id !== id);
     setFiles(updated);
@@ -409,7 +387,7 @@ export const useNexusFiles = () => {
  * useTasks: Dual-Engine
  */
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>(getStorageData('tasks'));
+  const [tasks, setTasks] = useState<Task[]>(() => getStorageData('tasks'));
   const [loading, setLoading] = useState(true);
   
   const fetchTasks = useCallback(async () => {
@@ -431,7 +409,7 @@ export const useTasks = () => {
         setStorageData('tasks', data);
       }
     } catch (err: any) {
-      console.error('[Production DB] Fetch Tasks Failed:', err.message || err);
+      console.error('[Production DB] Fetch Tasks Failed:', err.message);
       setTasks(getStorageData('tasks'));
     } finally {
       setLoading(false);
@@ -464,18 +442,15 @@ export const useTasks = () => {
         setStorageData('tasks', updated);
       }
     } catch (err: any) {
-      console.error('[Production DB] Add Task Failed:', err.message || err);
+      console.error('[Production DB] Add Task Failed:', err.message);
     }
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
     if (!isPreview) {
       try {
-        const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] Toggle Task Failed:', err.message || err);
-      }
+        await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
+      } catch (err) {}
     }
     const updated = tasks.map(t => t.id === id ? { ...t, is_completed: completed } : t);
     setTasks(updated);
@@ -485,11 +460,8 @@ export const useTasks = () => {
   const deleteTask = async (id: string) => {
     if (!isPreview) {
       try {
-        const { error } = await supabase.from('tasks').delete().eq('id', id);
-        if (error) throw error;
-      } catch (err: any) {
-        console.error('[Production DB] Delete Task Failed:', err.message || err);
-      }
+        await supabase.from('tasks').delete().eq('id', id);
+      } catch (err) {}
     }
     const updated = tasks.filter(t => t.id !== id);
     setTasks(updated);
@@ -500,7 +472,7 @@ export const useTasks = () => {
 };
 
 /**
- * useGhostMode: UI Utilities (Unchanged)
+ * useGhostMode: UI Blurring
  */
 export const useGhostMode = (timeout: number, active: boolean) => {
   const [isGhost, setIsGhost] = useState(false);
@@ -516,7 +488,7 @@ export const useGhostMode = (timeout: number, active: boolean) => {
 };
 
 /**
- * useCloakMessaging: Local Ephemeral Messaging (Unchanged)
+ * useCloakMessaging: Local Ephemeral Messaging
  */
 export const useCloakMessaging = () => {
   const createMessage = (content: string, type: string, burnTimer: number) => {
