@@ -1,80 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase, useCloudEngine } from '../lib/supabase';
 import { Icons } from '../lib/constants';
 
 // ------------------------------------------------------------------
-// 🚨 SECURITY WHITELIST 🚨
-// Only this specific email is authorized for the magic link flow.
+// 🚨 SYSTEM SECURITY PROTOCOL 🚨
+// Single-user Hardcoded Access Identifier
 // ------------------------------------------------------------------
-const WHITELIST = [
-    'admin@nexus.pro',
-];
+const ADMIN_ID = "nexus.admin.pro";
+const SESSION_KEY = "nexus_local_user";
 
 const Auth = () => {
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const [isBooting, setIsBooting] = useState(true);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    // Check for existing session on mount (Auto-login attempt)
+    useEffect(() => {
+        const checkSession = async () => {
+            const savedSession = localStorage.getItem(SESSION_KEY);
+            if (savedSession === ADMIN_ID) {
+                // If valid session exists, force app reload to trigger Main App render
+                // (App.tsx checks this key on mount)
+                window.location.reload();
+            } else {
+                setIsBooting(false);
+            }
+        };
+        checkSession();
+    }, []);
+
+    const handleAccess = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setLoading(true);
 
         try {
-            // 1. Whitelist Verification
-            const normalizedEmail = email.trim().toLowerCase();
-            
-            // Artificial delay for UX consistency
-            await new Promise(r => setTimeout(r, 600));
+            // Artificial System Delay for "Processing" feel
+            await new Promise(r => setTimeout(r, 800));
 
-            if (!WHITELIST.includes(normalizedEmail)) {
-                throw new Error("Access Denied: Email not authorized.");
-            }
+            const normalizedInput = username.trim().toLowerCase();
 
-            // 2. Authentication Logic
-            if (useCloudEngine) {
-                // Online Mode: Magic Link / OTP
-                const { error: otpError } = await supabase.auth.signInWithOtp({
-                    email: normalizedEmail,
-                    options: {
-                        // CRITICAL FIX: Allow user creation for the first login of the admin
-                        shouldCreateUser: true, 
-                        emailRedirectTo: window.location.origin,
-                    }
-                });
+            if (normalizedInput === ADMIN_ID) {
+                // ACCESS GRANTED
+                localStorage.setItem(SESSION_KEY, ADMIN_ID);
                 
-                if (otpError) throw otpError;
-                
-                // Show Success State
-                setSuccess(true);
+                // Trigger success visual before reload
+                setLoading(false); // Stop spinner
+                // Force reload to switch App.tsx state from <Auth /> to <AppContent />
+                window.location.reload();
             } else {
-                // Offline Mode (Simulation for development without keys)
-                // Simulate sending link then auto-login
-                await new Promise(r => setTimeout(r, 800));
-                localStorage.setItem('nexus_local_user', normalizedEmail);
-                window.location.reload(); 
+                // ACCESS DENIED
+                throw new Error("System Unauthorized: Identity Mismatch");
             }
 
         } catch (err: any) {
-            console.error("Auth Error:", err);
-            // Handle specific Supabase error messages better
-            if (err.message?.includes("Signups not allowed")) {
-                setError("System Lockdown: Registration Disabled.");
-            } else {
-                setError(err.message || 'Failed to send access link.');
-            }
-        } finally {
+            console.error("Access Protocol:", err);
+            setError(err.message);
             setLoading(false);
+            
+            // Vibrate device on error if supported
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                navigator.vibrate(200);
+            }
         }
     };
 
-    const handleReset = () => {
-        setSuccess(false);
-        setEmail('');
-        setError(null);
-    };
+    if (isBooting) return null; // Prevent flash before auto-login check
 
     return (
         <div className="min-h-screen w-full bg-[#050505] flex flex-col items-center justify-center relative overflow-hidden font-sans text-white">
@@ -92,105 +84,87 @@ const Auth = () => {
                 {/* Card Container */}
                 <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
                     
-                    {/* Success State */}
-                    <AnimatePresence mode="wait">
-                        {success ? (
-                            <motion.div 
-                                key="success"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="flex flex-col items-center text-center space-y-6 py-4"
-                            >
-                                <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/20 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
-                                    <Icons.Check width={40} height={40} className="text-green-500" />
+                    {/* Header */}
+                    <div className="flex flex-col items-center gap-4 mb-10">
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner relative group">
+                            <div className="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Icons.Fingerprint width={32} height={32} className="text-white/80 relative z-10" />
+                        </div>
+                        <div className="text-center">
+                            <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Nexus Pro</h1>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">
+                                Administrative Access Panel
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Auth Form */}
+                    <form onSubmit={handleAccess} className="space-y-6">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-2">System Identifier</label>
+                            <div className="relative group">
+                                <input 
+                                    type="text" 
+                                    value={username}
+                                    onChange={(e) => {
+                                        setUsername(e.target.value);
+                                        if (error) setError(null);
+                                    }}
+                                    placeholder="Enter Admin Username"
+                                    className={`w-full bg-black/20 border rounded-2xl px-5 py-4 text-sm text-white focus:outline-none transition-all placeholder-white/10 font-mono tracking-wide
+                                        ${error 
+                                            ? 'border-red-500/50 focus:border-red-500 bg-red-500/5' 
+                                            : 'border-white/10 focus:border-blue-500/50 focus:bg-black/40'}
+                                    `}
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    required
+                                    autoFocus
+                                />
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 group-hover:text-white/40 transition-colors pointer-events-none">
+                                    <Icons.Lock width={16} />
                                 </div>
-                                <div className="space-y-2">
-                                    <h2 className="text-2xl font-bold tracking-tight">Check your inbox!</h2>
-                                    <p className="text-sm text-white/50 leading-relaxed max-w-[260px] mx-auto">
-                                        An access link has been sent to <span className="text-white font-medium">{email}</span>.
-                                    </p>
-                                </div>
-                                <button 
-                                    onClick={handleReset}
-                                    className="text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors mt-4"
+                            </div>
+                        </div>
+
+                        {/* Feedback Messages */}
+                        <AnimatePresence mode="wait">
+                            {error && (
+                                <motion.div 
+                                    initial={{ opacity: 0, height: 0, y: -10 }} 
+                                    animate={{ opacity: 1, height: 'auto', y: 0 }} 
+                                    exit={{ opacity: 0, height: 0, y: -10 }}
+                                    className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-3 overflow-hidden"
                                 >
-                                    Use different email
-                                </button>
-                            </motion.div>
-                        ) : (
-                            <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                                {/* Header */}
-                                <div className="flex flex-col items-center gap-4 mb-10">
-                                    <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner">
-                                        <Icons.Fingerprint width={32} height={32} className="text-white/80" />
-                                    </div>
-                                    <div className="text-center">
-                                        <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Nexus Pro</h1>
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">
-                                            {useCloudEngine ? 'Passwordless Access' : 'Offline Mode'}
-                                        </p>
-                                    </div>
-                                </div>
+                                    <Icons.Skull width={16} className="text-red-500 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-red-200 font-medium leading-relaxed font-mono">{error}</p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                                {/* Auth Form */}
-                                <form onSubmit={handleLogin} className="space-y-6">
-                                    <div className="space-y-1">
-                                        <label className="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-2">Authorized Email</label>
-                                        <div className="relative group">
-                                            <input 
-                                                type="email" 
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
-                                                placeholder="admin@nexus.pro"
-                                                className="w-full bg-black/20 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-blue-500/50 focus:bg-black/40 transition-all placeholder-white/10"
-                                                required
-                                                autoFocus
-                                            />
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 group-hover:text-white/40 transition-colors pointer-events-none">
-                                                <Icons.FileText width={16} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Feedback Messages */}
-                                    <AnimatePresence mode="wait">
-                                        {error && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, height: 0 }} 
-                                                animate={{ opacity: 1, height: 'auto' }} 
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-3"
-                                            >
-                                                <Icons.Skull width={16} className="text-red-500 shrink-0 mt-0.5" />
-                                                <p className="text-xs text-red-200 font-medium leading-relaxed">{error}</p>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    <button 
-                                        type="submit" 
-                                        disabled={loading}
-                                        className="w-full py-4 bg-white text-black rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-200 active:scale-95 transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                                                <span>Sending Link...</span>
-                                            </>
-                                        ) : (
-                                            <>Send Access Link</>
-                                        )}
-                                    </button>
-                                </form>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                        <button 
+                            type="submit" 
+                            disabled={loading || !username}
+                            className="w-full py-4 bg-white text-black rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-gray-200 active:scale-95 transition-all shadow-[0_0_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed group"
+                        >
+                            {loading ? (
+                                <>
+                                    <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                    <span>Verifying Identity...</span>
+                                </>
+                            ) : (
+                                <>
+                                    Initialize Uplink
+                                    <Icons.ArrowRight width={14} className="group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
+                        </button>
+                    </form>
                 </div>
 
                 <div className="mt-8 text-center space-y-2">
                     <p className="text-[9px] text-white/20 font-mono">
-                        NEXUS_OS v3.2.0 // {useCloudEngine ? 'MAGIC_LINK_PROTOCOL' : 'OFFLINE_SIMULATION'}
+                        NEXUS_OS v3.5 // SECURE_GATEWAY_ACTIVE
                     </p>
                 </div>
             </motion.div>
