@@ -396,45 +396,42 @@ const QrWidget = () => {
 }
 
 const NexusStreamWidget = ({ zenMode, setZenMode }: any) => {
-  // Default to Lofi Girl radio if nothing saved
-  const DEFAULT_STREAM_ID = 'jfKfPfyJRdk'; 
-  const [streamId, setStreamId] = useState(DEFAULT_STREAM_ID);
   const [isPlaying, setIsPlaying] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [volume, setVolume] = useState(100);
+  const [streamId, setStreamId] = useState(() => localStorage.getItem('nexus_stream_id') || 'jfKfPfyJRdk');
   
   const { showNotification } = useNotification();
   const { playClick, playDing } = useSound();
 
+  // Sync with Global Player state
   useEffect(() => {
-    const saved = localStorage.getItem('nexus_stream_id');
-    if (saved) setStreamId(saved);
+      const handleStateUpdate = (e: CustomEvent) => {
+          // YT State: 1 = Playing
+          setIsPlaying(e.detail.state === 1);
+          setVolume(e.detail.volume || 100);
+      };
+      window.addEventListener('nexus-state-update' as any, handleStateUpdate);
+      return () => window.removeEventListener('nexus-state-update' as any, handleStateUpdate);
   }, []);
 
-  const sendCommand = (func: string) => {
-      if (iframeRef.current && iframeRef.current.contentWindow) {
-          iframeRef.current.contentWindow.postMessage(JSON.stringify({
-              event: 'command',
-              func: func,
-              args: []
-          }), '*');
-      }
+  const dispatchCommand = (command: string, value?: any) => {
+      const evt = new CustomEvent('nexus-cmd', { detail: { command, value } });
+      window.dispatchEvent(evt);
   };
 
   const togglePlay = () => {
-      if (isPlaying) {
-          sendCommand('pauseVideo');
-          setIsPlaying(false);
-      } else {
-          sendCommand('playVideo');
-          setIsPlaying(true);
-      }
+      dispatchCommand(isPlaying ? 'pause' : 'play');
       playClick();
   };
 
-  const handleSkip = (direction: 'next' | 'previous') => {
-      sendCommand(`${direction}Video`);
-      setIsPlaying(true);
+  const handleSkip = (direction: 'next' | 'prev') => {
+      dispatchCommand(direction);
       playClick();
+  };
+
+  const handleVolume = (val: number) => {
+      setVolume(val);
+      dispatchCommand('volume', val);
   };
 
   const handleFocusToggle = () => {
@@ -462,80 +459,98 @@ const NexusStreamWidget = ({ zenMode, setZenMode }: any) => {
 
           setStreamId(newId);
           localStorage.setItem('nexus_stream_id', newId);
-          setIsPlaying(true); 
+          
+          dispatchCommand('load', newId);
           playDing();
           showNotification('Stream Signal Synced', 'success');
       }
   };
 
-  // Safe Origin for Embed (fixes Error 153)
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const isPlaylist = streamId.startsWith('PL') || streamId.length > 20;
-  
-  // URL Construction
-  // 1. Playlist: Uses listType=playlist&list=ID
-  // 2. Video: Uses video ID + playlist=ID (loop hack) + loop=1
-  const src = isPlaylist
-    ? `https://www.youtube.com/embed?listType=playlist&list=${streamId}&autoplay=1&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}`
-    : `https://www.youtube.com/embed/${streamId}?autoplay=1&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}&loop=1&playlist=${streamId}`;
+  const getVolumeIcon = () => {
+      if (volume === 0) return <Icons.VolumeX width={20} />;
+      if (volume < 50) return <Icons.Volume1 width={20} />;
+      return <Icons.Volume2 width={20} />;
+  };
 
   return (
       <div className="space-y-4 h-full flex flex-col">
-        {/* Main Player Area */}
-        <div className="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl relative flex-1 bg-black w-full group">
-            {/* YouTube IFrame */}
-            <iframe
-                ref={iframeRef}
-                src={src}
-                title="Nexus Stream"
-                className="absolute inset-0 w-full h-full object-cover pointer-events-auto"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-            />
-
-            {/* Glass Overlay (Fades on Hover) */}
-            <div className="absolute inset-0 bg-nexus-midnight/40 backdrop-blur-[1px] transition-opacity duration-500 opacity-100 group-hover:opacity-0 pointer-events-none" />
+        {/* Main Visualizer Area */}
+        <div className="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl relative flex-1 bg-black w-full group flex flex-col items-center justify-center bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-20">
+            {/* Ambient Pulse */}
+            <div className={`absolute w-64 h-64 bg-nexus-violet rounded-full blur-[120px] transition-opacity duration-1000 ${isPlaying ? 'opacity-40 animate-pulse-slow' : 'opacity-10'}`} />
+            
+            <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className={`w-24 h-24 rounded-full border-2 flex items-center justify-center backdrop-blur-md transition-all duration-500 ${isPlaying ? 'border-nexus-violet bg-nexus-violet/10 shadow-[0_0_50px_rgba(124,58,237,0.3)]' : 'border-white/10 bg-white/5'}`}>
+                    <Icons.Music width={40} className={isPlaying ? 'text-white' : 'text-white/30'} />
+                </div>
+                <div className="text-center">
+                    <h3 className="text-white font-bold tracking-tight">Nexus Audio Engine</h3>
+                    <p className="text-[10px] text-white/40 font-mono mt-1 uppercase tracking-widest">
+                        {isPlaying ? 'LIVE STREAM ACTIVE' : 'SYSTEM STANDBY'}
+                    </p>
+                </div>
+            </div>
         </div>
         
         {/* Controls Bar */}
-        <div className="flex gap-4 h-16 shrink-0 items-center justify-between px-2">
-            <div className="flex gap-2">
-                 <button 
-                    onClick={() => handleSkip('previous')}
-                    className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all active:scale-95 border border-white/5"
-                 >
-                    <Icons.SkipBack width={20} />
-                 </button>
-                 
-                 <button 
-                    onClick={togglePlay}
-                    className={`w-16 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg ${isPlaying ? 'bg-nexus-violet text-white shadow-nexus-violet/20' : 'bg-white text-black'}`}
-                 >
-                    {isPlaying ? <Icons.Pause width={20} /> : <Icons.Play width={20} />}
-                 </button>
-
-                 <button 
-                    onClick={() => handleSkip('next')}
-                    className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all active:scale-95 border border-white/5"
-                 >
-                    <Icons.SkipForward width={20} />
-                 </button>
+        <div className="flex flex-col gap-4 px-2">
+            
+            {/* Volume Slider */}
+            <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3 border border-white/5">
+                <button 
+                    onClick={() => handleVolume(volume === 0 ? 100 : 0)}
+                    className="text-white/50 hover:text-white transition-colors"
+                >
+                    {getVolumeIcon()}
+                </button>
+                <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={volume}
+                    onChange={(e) => handleVolume(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-nexus-violet hover:accent-violet-400 transition-all"
+                />
             </div>
 
-            <div className="flex gap-3">
-                <button 
-                    onClick={handleSource}
-                    className="h-12 px-5 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white border border-white/5 transition-all flex items-center gap-2"
-                >
-                    <Icons.Settings width={14} /> Source
-                </button>
-                <button 
-                    onClick={handleFocusToggle}
-                    className={`h-12 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${zenMode ? 'bg-white text-black border-white' : 'bg-white/5 text-white/40 border-white/5 hover:text-white'}`}
-                >
-                    {zenMode ? 'Focus On' : 'Focus Off'}
-                </button>
+            <div className="flex gap-4 h-16 shrink-0 items-center justify-between">
+                <div className="flex gap-2">
+                     <button 
+                        onClick={() => handleSkip('prev')}
+                        className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all active:scale-95 border border-white/5"
+                     >
+                        <Icons.SkipBack width={20} />
+                     </button>
+                     
+                     <button 
+                        onClick={togglePlay}
+                        className={`w-16 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg ${isPlaying ? 'bg-nexus-violet text-white shadow-nexus-violet/20' : 'bg-white text-black'}`}
+                     >
+                        {isPlaying ? <Icons.Pause width={20} /> : <Icons.Play width={20} />}
+                     </button>
+
+                     <button 
+                        onClick={() => handleSkip('next')}
+                        className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all active:scale-95 border border-white/5"
+                     >
+                        <Icons.SkipForward width={20} />
+                     </button>
+                </div>
+
+                <div className="flex gap-3">
+                    <button 
+                        onClick={handleSource}
+                        className="h-12 px-5 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white border border-white/5 transition-all flex items-center gap-2"
+                    >
+                        <Icons.Settings width={14} /> Source
+                    </button>
+                    <button 
+                        onClick={handleFocusToggle}
+                        className={`h-12 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${zenMode ? 'bg-white text-black border-white' : 'bg-white/5 text-white/40 border-white/5 hover:text-white'}`}
+                    >
+                        {zenMode ? 'Focus On' : 'Focus Off'}
+                    </button>
+                </div>
             </div>
         </div>
       </div>

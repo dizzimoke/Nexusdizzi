@@ -1,5 +1,5 @@
 
-import React, { Component, useState, useEffect, ErrorInfo } from 'react';
+import React, { Component, useState, useEffect, ErrorInfo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
 import Toolbox from './components/Toolbox';
@@ -11,11 +11,19 @@ import TheObserver from './components/TheObserver';
 import NexusAir from './components/NexusAir';
 import CloakViewer from './components/CloakViewer';
 import GhostSidebar from './components/GhostSidebar';
-import Auth from './components/Auth'; // New Local Auth
+import Auth from './components/Auth';
 import { SPRING_CONFIG, Icons } from './lib/constants';
 import { useSound } from './lib/sound';
-import { NotificationProvider } from './components/NotificationProvider';
+import { NotificationProvider, useNotification } from './components/NotificationProvider';
 import { checkConnection } from './lib/supabase';
+
+// --- Global Types ---
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: (() => void) | undefined;
+  }
+}
 
 // --- Error Boundary ---
 interface ErrorBoundaryProps {
@@ -27,10 +35,8 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  // Explicitly define state property to avoid TS errors
+  public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };
@@ -61,6 +67,125 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return this.props.children;
   }
 }
+
+// --- Global Player Component (Hidden/Persistent) ---
+const GlobalYouTubePlayer: React.FC = () => {
+    const playerRef = useRef<any>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isReady, setIsReady] = useState(false);
+
+    useEffect(() => {
+        // Load YouTube IFrame API
+        if (!window.YT) {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+        }
+
+        // Initialize Player on API Ready
+        window.onYouTubeIframeAPIReady = () => {
+            const savedId = localStorage.getItem('nexus_stream_id') || 'jfKfPfyJRdk';
+            const origin = window.location.origin;
+            
+            // Distinguish Playlist vs Video for Init
+            const isPlaylist = savedId.startsWith('PL') || savedId.length > 20;
+            const playerConfig: any = {
+                height: '100%',
+                width: '100%',
+                playerVars: {
+                    autoplay: 0,
+                    controls: 0,
+                    disablekb: 1,
+                    enablejsapi: 1,
+                    origin: origin,
+                    rel: 0,
+                    showinfo: 0,
+                    fs: 0,
+                    iv_load_policy: 3,
+                    modestbranding: 1
+                },
+                events: {
+                    onReady: (event: any) => {
+                        playerRef.current = event.target;
+                        setIsReady(true);
+                        // Restore Volume
+                        const savedVol = localStorage.getItem('nexus_stream_vol');
+                        if (savedVol) event.target.setVolume(parseInt(savedVol));
+                    },
+                    onStateChange: (event: any) => {
+                        // Dispatch state to UI (playing=1, paused=2)
+                        const evt = new CustomEvent('nexus-state-update', { 
+                            detail: { 
+                                state: event.data, 
+                                volume: playerRef.current?.getVolume() 
+                            } 
+                        });
+                        window.dispatchEvent(evt);
+                    }
+                }
+            };
+
+            if (isPlaylist) {
+                playerConfig.playerVars.listType = 'playlist';
+                playerConfig.playerVars.list = savedId;
+            } else {
+                playerConfig.videoId = savedId;
+                // Loop hack for single video
+                playerConfig.playerVars.playlist = savedId;
+                playerConfig.playerVars.loop = 1;
+            }
+
+            playerRef.current = new window.YT.Player('global-player-frame', playerConfig);
+        };
+
+        // Event Listeners for Remote Control
+        const handleCommand = (e: CustomEvent) => {
+            if (!playerRef.current || !playerRef.current.playVideo) return;
+            const { command, value } = e.detail;
+
+            switch (command) {
+                case 'play': playerRef.current.playVideo(); break;
+                case 'pause': playerRef.current.pauseVideo(); break;
+                case 'next': 
+                    if (playerRef.current.nextVideo) playerRef.current.nextVideo(); 
+                    break;
+                case 'prev': 
+                    if (playerRef.current.previousVideo) playerRef.current.previousVideo(); 
+                    break;
+                case 'volume': 
+                    playerRef.current.setVolume(value); 
+                    localStorage.setItem('nexus_stream_vol', value.toString());
+                    break;
+                case 'load':
+                    // Load new video/playlist
+                    // If it's a playlist, we might need to destroy/re-init or use cuePlaylist
+                    // Simplest for stability: Destroy and Re-init (handled by key prop change or manual check)
+                    // But here we can try loadVideoById / loadPlaylist
+                    const isPlaylist = value.startsWith('PL') || value.length > 20;
+                    if (isPlaylist) {
+                        playerRef.current.loadPlaylist({list: value, listType: 'playlist'});
+                    } else {
+                        playerRef.current.loadVideoById(value);
+                    }
+                    playerRef.current.playVideo();
+                    break;
+            }
+        };
+
+        window.addEventListener('nexus-cmd' as any, handleCommand);
+        return () => window.removeEventListener('nexus-cmd' as any, handleCommand);
+    }, []);
+
+    return (
+        <div 
+            id="global-player-wrapper" 
+            className="fixed bottom-0 left-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden -z-50"
+        >
+            <div id="global-player-frame" />
+        </div>
+    );
+};
 
 // --- Theme Configurations (Updated for Nexus Air Aesthetic) ---
 const THEMES = [
@@ -193,6 +318,8 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
       onClick={handleGlobalClick}
       className={`min-h-screen text-white selection:bg-nexus-cyan selection:text-black relative font-sans w-full overflow-y-auto overflow-x-hidden no-scrollbar bg-nexus-midnight transition-colors duration-1000`}
     >
+      <GlobalYouTubePlayer />
+      
       {!isMobile && <MenuToggle mode={menuMode} onToggle={toggleMenuMode} />}
 
       <AnimatePresence>

@@ -385,7 +385,8 @@ const CategoryCard = ({ label, sub, count, icon: Icon, active, onClick, color }:
     );
 };
 
-const FileCard = ({ file, onClick }: { file: NexusFile, onClick: () => void }) => {
+// Explicitly typed component to fix strict type check errors with intrinsic attributes like 'key'
+const FileCard: React.FC<{ file: NexusFile, onClick: () => void }> = ({ file, onClick }) => {
     const isImage = file.type.startsWith('image/');
     
     return (
