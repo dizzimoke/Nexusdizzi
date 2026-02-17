@@ -90,7 +90,11 @@ const MenuToggle = ({ mode, onToggle }: { mode: 'orbital' | 'ghost', onToggle: (
 );
 
 // --- MAIN APPLICATION CONTENT ---
-const AppContent: React.FC = () => {
+interface AppContentProps {
+  onLogout: () => void;
+}
+
+const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [cloakMessageId, setCloakMessageId] = useState<string | null>(null);
@@ -153,12 +157,6 @@ const AppContent: React.FC = () => {
 
   const removeRipple = (id: number) => {
     setRipples(prev => prev.filter(r => r.id !== id));
-  };
-
-  const handleLogout = () => {
-      // CLEAR LOCAL ACCESS KEY
-      localStorage.removeItem('nexus_access');
-      window.location.reload();
   };
 
   const renderContent = () => {
@@ -255,7 +253,7 @@ const AppContent: React.FC = () => {
            </AnimatePresence>
            
            <button 
-              onClick={handleLogout} 
+              onClick={onLogout} 
               className="text-[9px] font-bold uppercase tracking-widest text-white/30 hover:text-red-500 transition-colors bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full"
            >
               Disconnect
@@ -287,29 +285,36 @@ const AppContent: React.FC = () => {
 
 // --- APP ENTRY POINT ---
 const App: React.FC = () => {
-    // SECURITY GATE: Synchronous check to avoid loading flash
-    const [hasAccess] = useState(() => {
+    // Check localStorage synchronously to prevent flash
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('nexus_access') === 'true';
         }
         return false;
     });
 
+    const handleLoginSuccess = () => {
+        setIsAuthenticated(true);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('nexus_access');
+        setIsAuthenticated(false);
+    };
+
     // If viewing a shared cloak link, we bypass auth (logic handled in AppContent if needed, 
     // but typically a cloak link opens the viewer directly. 
     // For simplicity here, we assume full app access requires login, except specific shared views)
-    // However, the prompt asked to lock the site.
-    // If we want to allow Cloak viewing without login, we check URL here.
     const isSharedLink = typeof window !== 'undefined' && window.location.search.includes('cloak=');
 
-    if (!hasAccess && !isSharedLink) {
-        return <Auth />;
+    if (!isAuthenticated && !isSharedLink) {
+        return <Auth onLoginSuccess={handleLoginSuccess} />;
     }
 
     return (
         <ErrorBoundary>
             <NotificationProvider>
-                <AppContent />
+                <AppContent onLogout={handleLogout} />
             </NotificationProvider>
         </ErrorBoundary>
     );

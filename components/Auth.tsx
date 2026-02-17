@@ -9,7 +9,11 @@ import { Icons } from '../lib/constants';
 const ADMIN_USERNAME = "nexus.admin.pro";
 const ACCESS_KEY = "nexus_access";
 
-const Auth = () => {
+interface AuthProps {
+    onLoginSuccess: () => void;
+}
+
+export default function Auth({ onLoginSuccess }: AuthProps) {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -34,8 +38,9 @@ const Auth = () => {
                     navigator.vibrate([50, 50, 50]);
                 }
 
-                // Force reload to trigger App.tsx state change
-                window.location.reload();
+                // Call parent handler to switch view immediately
+                // DO NOT RELOAD WINDOW (Crashes Preview)
+                onLoginSuccess();
             } else {
                 // ACCESS DENIED
                 throw new Error("UNAUTHORIZED ENTITY");
@@ -159,5 +164,3 @@ const Auth = () => {
         </div>
     );
 };
-
-export default Auth;
