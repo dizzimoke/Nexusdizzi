@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../lib/constants';
@@ -96,6 +95,16 @@ const CloakViewer: React.FC<CloakViewerProps> = ({ messageId, onClose }) => {
         return () => window.removeEventListener('mousemove', handleMouseMove);
     }, []);
 
+    // Auto-Redirect on Burn (Kill Switch)
+    useEffect(() => {
+        if (status === 'burned') {
+            const timer = setTimeout(() => {
+                window.location.href = 'https://google.com';
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [status]);
+
     const handleBurn = () => {
         if (isBurning) return;
         setIsBurning(true);
@@ -158,12 +167,13 @@ const CloakViewer: React.FC<CloakViewerProps> = ({ messageId, onClose }) => {
                      <h1 className="text-3xl font-bold text-white tracking-tight">Link Expired</h1>
                      <p className="text-white/40 font-mono text-xs uppercase tracking-widest">Payload has been incinerated.</p>
                      
-                     <button 
-                        onClick={onClose}
-                        className="mt-8 px-8 py-3 bg-white/10 hover:bg-white/20 rounded-full text-xs font-bold uppercase tracking-widest transition-all"
-                     >
-                        Return to Nexus
-                     </button>
+                     {/* Redirect Notice */}
+                     <div className="mt-8 flex flex-col items-center gap-3">
+                         <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                         <p className="text-[10px] text-white/30 font-bold uppercase tracking-widest animate-pulse">
+                             Redirecting to Safety...
+                         </p>
+                     </div>
                  </motion.div>
             </div>
         );
