@@ -248,7 +248,14 @@ const AppContent: React.FC = () => {
         </div>
       </main>
 
-      {(!isFocusMode || isMobile) && (
+      {/* 
+        Modified Dock Rendering Logic:
+        - Show if NOT focused OR if on Mobile.
+        - AND check specifically for the display mode:
+          - If Desktop (!isMobile), ONLY show if menuMode is 'orbital'.
+          - If Mobile, always show (as Ghost Sidebar is desktop only).
+      */}
+      {(!isFocusMode || isMobile) && (menuMode === 'orbital' || isMobile) && (
         <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} isFocusMode={isFocusMode} />
       )}
     </div>
