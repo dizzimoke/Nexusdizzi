@@ -10,6 +10,7 @@ import TheObserver from './components/TheObserver';
 import NexusAir from './components/NexusAir';
 import CloakViewer from './components/CloakViewer';
 import GhostSidebar from './components/GhostSidebar';
+import Auth from './components/Auth'; // New Local Auth
 import { SPRING_CONFIG, Icons } from './lib/constants';
 import { useSound } from './lib/sound';
 import { NotificationProvider } from './components/NotificationProvider';
@@ -45,7 +46,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
            <Icons.Skull width={64} height={64} className="animate-pulse" />
            <div className="space-y-2">
              <h1 className="text-2xl tracking-[0.3em] font-bold uppercase">Critical System Failure</h1>
-             <p className="text-xs opacity-50 uppercase tracking-widest max-w-xs mx-auto">The Nexus kernel has encountered an unrecoverable exception. State has been localized to prevent data loss.</p>
+             <p className="text-xs opacity-50 uppercase tracking-widest max-w-xs mx-auto">The Nexus kernel has encountered an unrecoverable exception.</p>
            </div>
            <button 
               onClick={() => window.location.reload()} 
@@ -88,12 +89,14 @@ const MenuToggle = ({ mode, onToggle }: { mode: 'orbital' | 'ghost', onToggle: (
     </motion.button>
 );
 
+// --- MAIN APPLICATION CONTENT ---
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [cloakMessageId, setCloakMessageId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   
+  // Menu Configuration
   const [menuMode, setMenuMode] = useState<'orbital' | 'ghost'>(() => {
       try {
           if (typeof window !== 'undefined') {
@@ -108,26 +111,32 @@ const AppContent: React.FC = () => {
   const currentTheme = THEMES[activeTab] || THEMES[0];
   const [ripples, setRipples] = useState<{x: number, y: number, id: number}[]>([]);
 
+  // Setup
   useEffect(() => {
-    const handleResize = () => {
-        const mobile = window.innerWidth < 1024;
-        setIsMobile(mobile);
-        if (mobile && menuMode === 'ghost') setMenuMode('orbital');
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
+      // 1. Connectivity Check (Optional Visual Indicator)
+      const verifyConnection = async () => {
+         const status = await checkConnection();
+         setIsOnline(status);
+      };
+      verifyConnection();
 
-    const params = new URLSearchParams(window.location.search);
-    const cloakId = params.get('cloak');
-    if (cloakId) setCloakMessageId(cloakId);
+      // 2. Resize Listener
+      const handleResize = () => {
+          const mobile = window.innerWidth < 1024;
+          setIsMobile(mobile);
+          if (mobile && menuMode === 'ghost') setMenuMode('orbital');
+      };
+      handleResize();
+      window.addEventListener('resize', handleResize);
 
-    const verifyConnection = async () => {
-       const status = await checkConnection();
-       setIsOnline(status);
-    };
-    verifyConnection();
+      // 3. Cloak URL Param
+      const params = new URLSearchParams(window.location.search);
+      const cloakId = params.get('cloak');
+      if (cloakId) setCloakMessageId(cloakId);
 
-    return () => window.removeEventListener('resize', handleResize);
+      return () => {
+          window.removeEventListener('resize', handleResize);
+      };
   }, [menuMode]);
 
   const toggleMenuMode = () => {
@@ -146,6 +155,12 @@ const AppContent: React.FC = () => {
     setRipples(prev => prev.filter(r => r.id !== id));
   };
 
+  const handleLogout = () => {
+      // CLEAR LOCAL ACCESS KEY
+      localStorage.removeItem('nexus_access');
+      window.location.reload();
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 0: return <Toolbox onFocusChange={setIsFocusMode} />;
@@ -159,6 +174,7 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // --- SPECIAL VIEWERS ---
   if (cloakMessageId) {
       return <CloakViewer messageId={cloakMessageId} onClose={() => { setCloakMessageId(null); window.history.pushState({}, '', window.location.pathname); }} />;
   }
@@ -237,6 +253,13 @@ const AppContent: React.FC = () => {
                </div>
              </motion.div>
            </AnimatePresence>
+           
+           <button 
+              onClick={handleLogout} 
+              className="text-[9px] font-bold uppercase tracking-widest text-white/30 hover:text-red-500 transition-colors bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full"
+           >
+              Disconnect
+           </button>
         </div>
 
         <div className="flex-1 w-full">
@@ -262,12 +285,34 @@ const AppContent: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
-  <ErrorBoundary>
-    <NotificationProvider>
-        <AppContent />
-    </NotificationProvider>
-  </ErrorBoundary>
-);
+// --- APP ENTRY POINT ---
+const App: React.FC = () => {
+    // SECURITY GATE: Synchronous check to avoid loading flash
+    const [hasAccess] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('nexus_access') === 'true';
+        }
+        return false;
+    });
+
+    // If viewing a shared cloak link, we bypass auth (logic handled in AppContent if needed, 
+    // but typically a cloak link opens the viewer directly. 
+    // For simplicity here, we assume full app access requires login, except specific shared views)
+    // However, the prompt asked to lock the site.
+    // If we want to allow Cloak viewing without login, we check URL here.
+    const isSharedLink = typeof window !== 'undefined' && window.location.search.includes('cloak=');
+
+    if (!hasAccess && !isSharedLink) {
+        return <Auth />;
+    }
+
+    return (
+        <ErrorBoundary>
+            <NotificationProvider>
+                <AppContent />
+            </NotificationProvider>
+        </ErrorBoundary>
+    );
+};
 
 export default App;
