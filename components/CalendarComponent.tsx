@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons, SPRING_CONFIG } from '../lib/constants';
 import { useTasks } from '../lib/hooks';
@@ -51,7 +51,7 @@ const CalendarComponent: React.FC = () => {
       days.push(<div key={`empty-${i}`} className="h-8 sm:h-10" />);
     }
 
-    // "Today" check using local system time
+    // Determine "Today" based on local system time
     const now = new Date();
     const realDay = now.getDate();
     const realMonth = now.getMonth();
@@ -68,7 +68,7 @@ const CalendarComponent: React.FC = () => {
       const hasTask = tasks.some(t => t.date === dateStr && !t.is_completed);
       const isSelected = selectedDateStr === dateStr;
       
-      // Strict check for "Today"
+      // Strict Check for Today
       const isToday = (day === realDay && currentMonth === realMonth && currentYear === realYear);
 
       // Styles
@@ -76,8 +76,8 @@ const CalendarComponent: React.FC = () => {
       const lightText = isLightMode ? 'text-black/80' : 'text-white/80';
       const hoverStyle = isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/10';
       
-      // Today Highlight (Blue Glow)
-      const todayStyle = "bg-blue-600 text-white font-bold shadow-[0_0_15px_rgba(37,99,235,0.6)] z-10";
+      // Highlight Style for Today
+      const todayStyle = "bg-blue-600 text-white font-bold shadow-[0_0_15px_rgba(37,99,235,0.6)] z-10 border border-blue-400";
       
       // Selection Ring
       const selectedStyle = isLightMode
@@ -177,10 +177,10 @@ const TaskModal = ({
     dateStr, 
     onClose, 
     tasks, 
-    addTask,
-    toggleTask,
-    deleteTask,
-    isLightMode
+    addTask, 
+    toggleTask, 
+    deleteTask, 
+    isLightMode 
 }: { 
     dateStr: string, 
     onClose: () => void,

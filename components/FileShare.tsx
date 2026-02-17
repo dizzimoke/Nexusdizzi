@@ -34,7 +34,7 @@ const FileShareWidget: React.FC = () => {
      setUploadProgress(0);
      playWhoosh();
 
-     // Visual progress bar simulation while uploading
+     // Visual progress simulation
      const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
             if (prev >= 90) {
@@ -46,14 +46,18 @@ const FileShareWidget: React.FC = () => {
      }, 300);
 
      try {
-         // EXPLICITLY set bucket to 'public' as requested
-         const { publicUrl } = await uploadToVault(selectedFile, 'public');
+         console.log(`[AirDrop] Initiating upload to 'share' bucket...`);
          
+         // UPDATED: Use 'share' bucket instead of 'public'
+         const { publicUrl } = await uploadToVault(selectedFile, 'share');
+         
+         console.log(`[AirDrop] Success. URL: ${publicUrl}`);
+
          clearInterval(progressInterval);
          setUploadProgress(100);
          setShareUrl(publicUrl);
          
-         // Generate QR Code
+         // Generate QR
          const qr = await QRCode.toDataURL(publicUrl, { 
              margin: 2, 
              width: 256, 
@@ -64,9 +68,9 @@ const FileShareWidget: React.FC = () => {
          playDing();
          showNotification('File Ready for AirDrop', 'success');
      } catch (error: any) {
-         console.error("AirDrop Upload Failed:", error);
+         console.error("[AirDrop] Upload Failed:", error);
          clearInterval(progressInterval);
-         showNotification(`Transfer Failed: ${error?.message || 'Check Console'}`, 'reminder');
+         showNotification(`Transfer Error: ${error.message || 'Check Console'}`, 'reminder');
          setFile(null);
          setUploadProgress(0);
      } finally {
