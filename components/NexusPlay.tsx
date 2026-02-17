@@ -60,20 +60,19 @@ const NexusPlay: React.FC<NexusPlayProps> = ({ onClose }) => {
       className="fixed inset-0 z-[50] w-full h-full bg-[#050505] overflow-hidden font-sans select-none flex"
     >
         {/* --- THE PHANTOM RAIL (LEFT SIDEBAR) --- */}
-        {/* Z-Index 100: Above Content (50), Below Mobile Menu (200+) */}
-        {/* Idle: 20px width, faint border. Hover: 90px width, full neon glass. */}
+        {/* Z-Index 100 to stay above content */}
         <div className="fixed left-0 top-0 h-full z-[100] group w-[20px] hover:w-[90px] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col items-center justify-center 
             border-r border-white/5 bg-transparent shadow-none
             hover:border-r hover:border-purple-500/50 hover:bg-black/80 hover:backdrop-blur-xl hover:shadow-[0_0_50px_rgba(168,85,247,0.4)]"
         >
-            {/* The Plasma Line (Visual Indicator for Sensing Area) */}
+            {/* The Plasma Line (Visual Indicator) */}
             <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-white/5 shadow-none transition-all duration-500 group-hover:w-[3px] group-hover:bg-purple-500 group-hover:shadow-[0_0_20px_#a855f7]" />
 
             {/* Nav Items Container */}
-            <div className="relative z-10 flex flex-col gap-8 w-full items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
+            <div className="relative z-10 flex flex-col gap-8 w-full items-center">
                 
-                {/* Top Brand */}
-                <div className="mb-8">
+                {/* Top Brand (Hidden by default, slides in) */}
+                <div className="mb-8 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 delay-75 pointer-events-none group-hover:pointer-events-auto">
                     <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center text-white shadow-lg">
                         <Icons.Gamepad width={20} height={20} />
                     </div>
@@ -84,13 +83,13 @@ const NexusPlay: React.FC<NexusPlayProps> = ({ onClose }) => {
                 <GhostNavBtn id="releases" icon={Icons.Calendar} label="Drops" active={activeSection} onClick={setActiveSection} delay={200} />
                 <GhostNavBtn id="library" icon={Icons.Library} label="Lib" active={activeSection} onClick={setActiveSection} delay={250} />
                 
-                <div className="w-8 h-px bg-white/10 my-2" />
+                <div className="w-8 h-px bg-white/10 my-2 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300" />
                 
                 <GhostNavBtn id="reviews" icon={Icons.Star} label="Reviews" active={activeSection} onClick={setActiveSection} delay={350} />
                 <GhostNavBtn id="guides" icon={Icons.BookOpen} label="Guides" active={activeSection} onClick={setActiveSection} delay={400} />
 
                 {/* Bottom Close */}
-                <div className="mt-12">
+                <div className="mt-12 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 delay-500 pointer-events-none group-hover:pointer-events-auto">
                     <button 
                         onClick={() => { playClick(); onClose?.(); }}
                         className="w-10 h-10 rounded-full bg-white/5 hover:bg-red-500/20 text-white/30 hover:text-red-500 flex items-center justify-center transition-all border border-white/5 hover:border-red-500/30"
@@ -102,8 +101,7 @@ const NexusPlay: React.FC<NexusPlayProps> = ({ onClose }) => {
         </div>
 
         {/* --- MAIN CONTENT (FULL WIDTH) --- */}
-        {/* Z-Index 50: Base Layer */}
-        {/* pl-[20px]: Creates a safe gutter for the idle sidebar so content doesn't bleed left */}
+        {/* pl-[20px] ensures content starts after the idle ghost bar */}
         <div className="flex-1 w-full h-full relative overflow-y-auto bg-gradient-to-br from-[#050505] to-[#0a0a0a] no-scrollbar pl-[20px] z-[50]">
             
             {/* Header Overlay (Fixed Top Right) */}
@@ -147,7 +145,12 @@ const GhostNavBtn = ({ id, icon: Icon, label, active, onClick, delay }: any) => 
     return (
         <button
             onClick={() => onClick(id)}
-            className="group/btn relative flex flex-col items-center gap-1 w-full transition-transform duration-300 active:scale-95"
+            className={`
+                group/btn relative flex flex-col items-center gap-1 w-full
+                opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0
+                transition-all duration-300 ease-out pointer-events-none group-hover:pointer-events-auto
+            `}
+            style={{ transitionDelay: `${delay}ms` }}
         >
             <div className={`
                 p-2 rounded-xl transition-all duration-300 transform group-hover/btn:scale-110
@@ -190,8 +193,7 @@ const DashboardView: React.FC<{ tickerText: string }> = ({ tickerText }) => (
                 Trending Now
             </div>
             
-            {/* SAFE ZONE PROTECTION: pl-28 (112px) > Sidebar Expanded Width (90px) */}
-            {/* This ensures the text is NEVER covered by the sidebar */}
+            {/* SAFE ZONE: pl-28 (112px) > Sidebar Expanded Width (90px) */}
             <div className="absolute bottom-0 left-0 p-12 pl-28 w-full max-w-3xl">
                 <div className="flex gap-2 mb-8">
                     {HERO_GAME.tags.map(tag => (

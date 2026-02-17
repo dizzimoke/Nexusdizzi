@@ -1,14 +1,15 @@
 
 import React, { useState, useRef } from 'react';
-import { Icons } from '../lib/constants';
 import { useSound } from '../lib/sound';
+import { NavItem } from '../App';
 
 interface GhostSidebarProps {
-    onNavigate: (id: number) => void;
-    currentTab: number;
+    onNavigate: (id: string) => void;
+    currentTab: string;
+    navItems: NavItem[];
 }
 
-const GhostSidebar: React.FC<GhostSidebarProps> = ({ onNavigate, currentTab }) => {
+const GhostSidebar: React.FC<GhostSidebarProps> = ({ onNavigate, currentTab, navItems }) => {
     const [isOpen, setIsOpen] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { playTick, playWhoosh } = useSound();
@@ -24,16 +25,6 @@ const GhostSidebar: React.FC<GhostSidebarProps> = ({ onNavigate, currentTab }) =
             setIsOpen(false);
         }, 300);
     };
-
-    const navItems = [
-        { id: 0, icon: Icons.Toolbox, label: 'Toolbox' },
-        { id: 1, icon: Icons.Vault, label: 'Vault' },
-        { id: 2, icon: Icons.Links, label: 'Links' },
-        { id: 3, icon: Icons.Cloak, label: 'Cloak' },
-        { id: 4, icon: Icons.Fingerprint, label: 'Sentinel' },
-        { id: 5, icon: Icons.Aperture, label: 'Observer' },
-        { id: 6, icon: Icons.AirPlay, label: 'Air' },
-    ];
 
     return (
         <>
