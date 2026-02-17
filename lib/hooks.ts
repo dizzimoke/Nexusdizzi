@@ -7,33 +7,41 @@ import {
   Task, 
   ObserverLog, 
   NexusFile, 
-  SmartLink 
+  SmartLink,
+  isPreview
 } from './supabase';
 
 export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
 /**
- * --- HYBRID PERSISTENCE ENGINE ---
- * Logic: Try Production DB -> Fallback to LocalStorage on failure.
+ * --- DUAL-ENGINE PERSISTENCE UTILS ---
+ * Storage Keys for Preview / Cache
  */
-
-const getLocal = (key: string) => {
-  const data = localStorage.getItem(`nexus_local_${key}`);
+const getStorageData = (key: string) => {
+  if (typeof window === 'undefined') return [];
+  const data = localStorage.getItem(`nexus_v3_${key}`);
   return data ? JSON.parse(data) : [];
 };
 
-const setLocal = (key: string, data: any[]) => {
-  localStorage.setItem(`nexus_local_${key}`, JSON.stringify(data));
+const setStorageData = (key: string, data: any[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`nexus_v3_${key}`, JSON.stringify(data));
 };
 
 /**
- * useSmartLinks: Hybrid Logic
+ * useSmartLinks: Dual-Engine
  */
 export const useSmartLinks = () => {
-  const [links, setLinks] = useState<SmartLink[]>(getLocal('links'));
+  const [links, setLinks] = useState<SmartLink[]>(getStorageData('links'));
   const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
+    if (isPreview) {
+      setLinks(getStorageData('links'));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -44,11 +52,12 @@ export const useSmartLinks = () => {
       if (error) throw error;
       if (data) {
         setLinks(data);
-        setLocal('links', data);
+        setStorageData('links', data);
       }
     } catch (err: any) {
-      console.warn('[Production DB] Links Offline, using Local Vault:', err.message);
-      setLinks(getLocal('links'));
+      console.error('[Production DB] Fetch Links Failed:', err.message || err);
+      // Optional fallback to cache on prod failure
+      setLinks(getStorageData('links'));
     } finally {
       setLoading(false);
     }
@@ -57,52 +66,65 @@ export const useSmartLinks = () => {
   useEffect(() => { fetchLinks(); }, [fetchLinks]);
 
   const addLink = async (link: { title: string; url: string }) => {
-    const localItem: SmartLink = { 
-      id: crypto.randomUUID(), 
-      ...link, 
-      created_at: new Date().toISOString() 
-    };
+    if (isPreview) {
+      const localItem: SmartLink = { 
+        id: crypto.randomUUID(), 
+        ...link, 
+        created_at: new Date().toISOString() 
+      };
+      const updated = [localItem, ...links];
+      setLinks(updated);
+      setStorageData('links', updated);
+      return true;
+    }
 
     try {
       const { data, error } = await supabase.from('links').insert([link]).select();
       if (error) throw error;
       if (data) {
-        setLinks(prev => [data[0], ...prev]);
+        const updated = [data[0], ...links];
+        setLinks(updated);
+        setStorageData('links', updated);
         return true;
       }
     } catch (err: any) {
-      console.warn('[Production DB] Save Failed, using Local Storage');
-      const updated = [localItem, ...links];
-      setLinks(updated);
-      setLocal('links', updated);
-      return true;
+      console.error('[Production DB] Add Link Failed:', err.message || err);
+      return false;
     }
     return false;
   };
 
   const deleteLink = async (id: string) => {
-    try {
-      const { error } = await supabase.from('links').delete().eq('id', id);
-      if (error) throw error;
-    } catch (err) {
-      console.warn('[Production DB] Delete Failed, syncing locally');
+    if (!isPreview) {
+      try {
+        const { error } = await supabase.from('links').delete().eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] Delete Link Failed:', err.message || err);
+      }
     }
     const updated = links.filter(l => l.id !== id);
     setLinks(updated);
-    setLocal('links', updated);
+    setStorageData('links', updated);
   };
 
   return { links, addLink, deleteLink, loading };
 };
 
 /**
- * useVaultItems: Hybrid Logic
+ * useVaultItems: Dual-Engine
  */
 export const useVaultItems = () => {
-  const [items, setItems] = useState<VaultItem[]>(getLocal('vault'));
+  const [items, setItems] = useState<VaultItem[]>(getStorageData('vault'));
   const [loading, setLoading] = useState(true);
   
   const fetchItems = useCallback(async () => {
+    if (isPreview) {
+      setItems(getStorageData('vault'));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -112,11 +134,11 @@ export const useVaultItems = () => {
       if (error) throw error;
       if (data) {
         setItems(data);
-        setLocal('vault', data);
+        setStorageData('vault', data);
       }
     } catch (err: any) {
-      console.warn('[Production DB] Vault Offline, using Local Cache');
-      setItems(getLocal('vault'));
+      console.error('[Production DB] Fetch Vault Failed:', err.message || err);
+      setItems(getStorageData('vault'));
     } finally {
       setLoading(false);
     }
@@ -125,59 +147,80 @@ export const useVaultItems = () => {
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
   const addItem = async (item: Partial<VaultItem>) => {
-    const localItem: VaultItem = { 
-      id: crypto.randomUUID(), 
-      title: item.title || '',
-      username: item.username || '',
-      password: item.password || '',
-      color: item.color || 'bg-emerald-500',
-      icon: item.icon || '🔒',
-      ...item 
-    } as VaultItem;
+    if (isPreview) {
+      const localItem: VaultItem = { 
+        id: crypto.randomUUID(), 
+        title: item.title || '',
+        username: item.username || '',
+        password: item.password || '',
+        color: item.color || 'bg-emerald-500',
+        icon: item.icon || '🔒',
+        created_at: new Date().toISOString(),
+        ...item 
+      } as VaultItem;
+      const updated = [localItem, ...items];
+      setItems(updated);
+      setStorageData('vault', updated);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.from('vault_items').insert([item]).select();
       if (error) throw error;
-      if (data) setItems(prev => [data[0], ...prev]);
-    } catch (err) {
-      const updated = [localItem, ...items];
-      setItems(updated);
-      setLocal('vault', updated);
+      if (data) {
+        const updated = [data[0], ...items];
+        setItems(updated);
+        setStorageData('vault', updated);
+      }
+    } catch (err: any) {
+      console.error('[Production DB] Add Vault Item Failed:', err.message || err);
     }
   };
   
   const updateItem = async (id: string, updates: Partial<VaultItem>) => {
-    try {
-      const { error } = await supabase.from('vault_items').update(updates).eq('id', id);
-      if (error) throw error;
-    } catch (err) {
-      console.warn('[Production DB] Update Failed locally');
+    if (!isPreview) {
+      try {
+        const { error } = await supabase.from('vault_items').update(updates).eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] Update Vault Item Failed:', err.message || err);
+      }
     }
     const updated = items.map(i => i.id === id ? { ...i, ...updates } : i);
     setItems(updated);
-    setLocal('vault', updated);
+    setStorageData('vault', updated);
   };
   
   const deleteItem = async (id: string) => {
-    try {
-      await supabase.from('vault_items').delete().eq('id', id);
-    } catch (err) {}
+    if (!isPreview) {
+      try {
+        await supabase.from('vault_items').delete().eq('id', id);
+      } catch (err: any) {
+        console.error('[Production DB] Delete Vault Item Failed:', err.message || err);
+      }
+    }
     const updated = items.filter(i => i.id !== id);
     setItems(updated);
-    setLocal('vault', updated);
+    setStorageData('vault', updated);
   };
   
   return { items, addItem, updateItem, deleteItem, loading };
 };
 
 /**
- * useObserver: Visual Intel (table: observations, bucket: vault)
+ * useObserver: Dual-Engine
  */
 export const useObserver = () => {
-  const [evidence, setEvidence] = useState<ObserverLog[]>(getLocal('observer'));
+  const [evidence, setEvidence] = useState<ObserverLog[]>(getStorageData('observer'));
   const [loading, setLoading] = useState(true);
   
   const fetchEvidence = useCallback(async () => {
+    if (isPreview) {
+      setEvidence(getStorageData('observer'));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -187,10 +230,11 @@ export const useObserver = () => {
       if (error) throw error;
       if (data) {
         setEvidence(data);
-        setLocal('observer', data);
+        setStorageData('observer', data);
       }
-    } catch (err) {
-      setEvidence(getLocal('observer'));
+    } catch (err: any) {
+      console.error('[Production DB] Fetch Observations Failed:', err.message || err);
+      setEvidence(getStorageData('observer'));
     } finally {
       setLoading(false);
     }
@@ -200,8 +244,21 @@ export const useObserver = () => {
 
   const addEvidence = async (file: File) => {
     try {
-      // 1. Try Real Upload
       const { publicUrl } = await uploadToVault(file, 'vault');
+      
+      if (isPreview) {
+        const localItem: ObserverLog = {
+          id: crypto.randomUUID(),
+          image_url: publicUrl,
+          category: 'LOOT_DROPS',
+          created_at: new Date().toISOString()
+        };
+        const updated = [localItem, ...evidence];
+        setEvidence(updated);
+        setStorageData('observer', updated);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('observations')
         .insert([{ image_url: publicUrl, category: 'LOOT_DROPS' }])
@@ -209,58 +266,66 @@ export const useObserver = () => {
 
       if (error) throw error;
       if (data) {
-        setEvidence(prev => [data[0], ...prev]);
+        const updated = [data[0], ...evidence];
+        setEvidence(updated);
+        setStorageData('observer', updated);
       }
-    } catch (err) {
-      console.warn('[Production DB] Upload Failed, simulating local success');
-      // 2. Mock Fallback
-      const localUrl = URL.createObjectURL(file);
-      const mockItem: ObserverLog = {
-        id: crypto.randomUUID(),
-        image_url: localUrl,
-        category: 'LOOT_DROPS',
-        created_at: new Date().toISOString()
-      };
-      const updated = [mockItem, ...evidence];
-      setEvidence(updated);
-      setLocal('observer', updated);
+    } catch (err: any) {
+      console.error('[Production DB] Add Evidence Failed:', err.message || err);
+      throw err;
     }
   };
   
   const deleteEvidence = async (id: string) => {
-    try {
-      await supabase.from('observations').delete().eq('id', id);
-    } catch (err) {}
+    if (!isPreview) {
+      try {
+        const { error } = await supabase.from('observations').delete().eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] Delete Evidence Failed:', err.message || err);
+      }
+    }
     const updated = evidence.filter(e => e.id !== id);
     setEvidence(updated);
-    setLocal('observer', updated);
+    setStorageData('observer', updated);
   };
 
   const updateEvidence = async (id: string, updates: Partial<ObserverLog>) => {
-    try {
-      await supabase.from('observations').update(updates).eq('id', id);
-    } catch (err) {}
+    if (!isPreview) {
+      try {
+        const { error } = await supabase.from('observations').update(updates).eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] Update Observation Failed:', err.message || err);
+      }
+    }
     const updated = evidence.map(e => e.id === id ? { ...e, ...updates } : e);
     setEvidence(updated);
-    setLocal('observer', updated);
+    setStorageData('observer', updated);
   };
   
   const loadFromBackup = (data: ObserverLog[]) => { 
     setEvidence(data);
-    setLocal('observer', data);
+    setStorageData('observer', data);
   };
   return { evidence, addEvidence, updateEvidence, deleteEvidence, loadFromBackup, loading };
 };
 
 /**
- * useNexusFiles: Cloud Storage (table: files, bucket: nexus_files)
+ * useNexusFiles: Dual-Engine
  */
 export const useNexusFiles = () => {
-  const [files, setFiles] = useState<NexusFile[]>(getLocal('files'));
+  const [files, setFiles] = useState<NexusFile[]>(getStorageData('files'));
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
   const fetchFiles = useCallback(async () => {
+    if (isPreview) {
+      setFiles(getStorageData('files'));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -270,10 +335,11 @@ export const useNexusFiles = () => {
       if (error) throw error;
       if (data) {
         setFiles(data);
-        setLocal('files', data);
+        setStorageData('files', data);
       }
-    } catch (err) {
-      setFiles(getLocal('files'));
+    } catch (err: any) {
+      console.error('[Production DB] Fetch Files Failed:', err.message || err);
+      setFiles(getStorageData('files'));
     } finally {
       setLoading(false);
     }
@@ -285,59 +351,74 @@ export const useNexusFiles = () => {
     setUploading(true);
     try {
       const { publicUrl, path } = await uploadToVault(file, 'nexus_files');
+      
+      if (isPreview) {
+        const localItem: NexusFile = {
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: publicUrl,
+          storage_path: path,
+          created_at: new Date().toISOString()
+        };
+        const updated = [localItem, ...files];
+        setFiles(updated);
+        setStorageData('files', updated);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('files')
-        .insert([{ 
-          name: file.name, 
-          size: file.size, 
-          type: file.type, 
-          url: publicUrl, 
-          storage_path: path 
-        }])
+        .insert([{ name: file.name, size: file.size, type: file.type, url: publicUrl, storage_path: path }])
         .select();
 
       if (error) throw error;
-      if (data) setFiles(prev => [data[0], ...prev]);
-    } catch (err) {
-      console.warn('[Production DB] File System Offline, caching locally');
-      const mockItem: NexusFile = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        url: URL.createObjectURL(file),
-        storage_path: 'local_temp',
-        created_at: new Date().toISOString()
-      };
-      const updated = [mockItem, ...files];
-      setFiles(updated);
-      setLocal('files', updated);
+      if (data) {
+        const updated = [data[0], ...files];
+        setFiles(updated);
+        setStorageData('files', updated);
+      }
+    } catch (err: any) {
+      console.error('[Production DB] File Upload Failed:', err.message || err);
+      throw err;
     } finally {
       setUploading(false);
     }
   };
   
   const deleteFile = async (id: string, path: string) => {
-    try {
-      if (path !== 'local_temp') await deleteFromVault(path, 'nexus_files');
-      await supabase.from('files').delete().eq('id', id);
-    } catch (err) {}
+    if (!isPreview) {
+      try {
+        await deleteFromVault(path, 'nexus_files');
+        const { error } = await supabase.from('files').delete().eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] File Deletion Error:', err.message || err);
+      }
+    }
     const updated = files.filter(f => f.id !== id);
     setFiles(updated);
-    setLocal('files', updated);
+    setStorageData('files', updated);
   };
   
   return { files, uploading, uploadFile, deleteFile, loading };
 };
 
 /**
- * useTasks: Mission Parameters (table: tasks)
+ * useTasks: Dual-Engine
  */
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>(getLocal('tasks'));
+  const [tasks, setTasks] = useState<Task[]>(getStorageData('tasks'));
   const [loading, setLoading] = useState(true);
   
   const fetchTasks = useCallback(async () => {
+    if (isPreview) {
+      setTasks(getStorageData('tasks'));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -347,10 +428,11 @@ export const useTasks = () => {
       if (error) throw error;
       if (data) {
         setTasks(data);
-        setLocal('tasks', data);
+        setStorageData('tasks', data);
       }
-    } catch (err) {
-      setTasks(getLocal('tasks'));
+    } catch (err: any) {
+      console.error('[Production DB] Fetch Tasks Failed:', err.message || err);
+      setTasks(getStorageData('tasks'));
     } finally {
       setLoading(false);
     }
@@ -359,49 +441,66 @@ export const useTasks = () => {
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
   const addTask = async (taskData: Partial<Task>) => {
-    const localItem: Task = { 
-      id: crypto.randomUUID(), 
-      date: taskData.date || new Date().toISOString().split('T')[0],
-      task_title: taskData.task_title || '',
-      is_completed: false,
-      created_at: new Date().toISOString()
-    };
+    if (isPreview) {
+      const localItem: Task = { 
+        id: crypto.randomUUID(), 
+        date: taskData.date || new Date().toISOString().split('T')[0],
+        task_title: taskData.task_title || '',
+        is_completed: false,
+        created_at: new Date().toISOString()
+      };
+      const updated = [...tasks, localItem];
+      setTasks(updated);
+      setStorageData('tasks', updated);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.from('tasks').insert([taskData]).select();
       if (error) throw error;
-      if (data) setTasks(prev => [...prev, data[0] as Task]);
-    } catch (err) {
-      const updated = [...tasks, localItem];
-      setTasks(updated);
-      setLocal('tasks', updated);
+      if (data) {
+        const updated = [...tasks, data[0] as Task];
+        setTasks(updated);
+        setStorageData('tasks', updated);
+      }
+    } catch (err: any) {
+      console.error('[Production DB] Add Task Failed:', err.message || err);
     }
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
-    try {
-      const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
-      if (error) throw error;
-    } catch (err) {}
+    if (!isPreview) {
+      try {
+        const { error } = await supabase.from('tasks').update({ is_completed: completed }).eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] Toggle Task Failed:', err.message || err);
+      }
+    }
     const updated = tasks.map(t => t.id === id ? { ...t, is_completed: completed } : t);
     setTasks(updated);
-    setLocal('tasks', updated);
+    setStorageData('tasks', updated);
   };
 
   const deleteTask = async (id: string) => {
-    try {
-      await supabase.from('tasks').delete().eq('id', id);
-    } catch (err) {}
+    if (!isPreview) {
+      try {
+        const { error } = await supabase.from('tasks').delete().eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Production DB] Delete Task Failed:', err.message || err);
+      }
+    }
     const updated = tasks.filter(t => t.id !== id);
     setTasks(updated);
-    setLocal('tasks', updated);
+    setStorageData('tasks', updated);
   };
 
   return { tasks, addTask, toggleTask, deleteTask, loading };
 };
 
 /**
- * useGhostMode: UI Blurring
+ * useGhostMode: UI Utilities (Unchanged)
  */
 export const useGhostMode = (timeout: number, active: boolean) => {
   const [isGhost, setIsGhost] = useState(false);
@@ -417,25 +516,25 @@ export const useGhostMode = (timeout: number, active: boolean) => {
 };
 
 /**
- * useCloakMessaging: Local Ephemeral Messaging
+ * useCloakMessaging: Local Ephemeral Messaging (Unchanged)
  */
 export const useCloakMessaging = () => {
   const createMessage = (content: string, type: string, burnTimer: number) => {
     const id = Math.random().toString(36).substring(2, 9);
     const msg = { id, content, type, burnTimer, created_at: Date.now() };
-    const stored = JSON.parse(localStorage.getItem('nexus_cloak') || '{}');
+    const stored = JSON.parse(localStorage.getItem('nexus_cloak_v3') || '{}');
     stored[id] = msg;
-    localStorage.setItem('nexus_cloak', JSON.stringify(stored));
+    localStorage.setItem('nexus_cloak_v3', JSON.stringify(stored));
     return id;
   };
   const getMessage = async (id: string) => {
-    const stored = JSON.parse(localStorage.getItem('nexus_cloak') || '{}');
+    const stored = JSON.parse(localStorage.getItem('nexus_cloak_v3') || '{}');
     return stored[id] || null;
   };
   const burnMessage = async (id: string) => {
-    const stored = JSON.parse(localStorage.getItem('nexus_cloak') || '{}');
+    const stored = JSON.parse(localStorage.getItem('nexus_cloak_v3') || '{}');
     delete stored[id];
-    localStorage.setItem('nexus_cloak', JSON.stringify(stored));
+    localStorage.setItem('nexus_cloak_v3', JSON.stringify(stored));
   };
   return { createMessage, getMessage, burnMessage };
 };

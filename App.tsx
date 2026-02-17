@@ -25,9 +25,12 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// Fix: Changed inheritance to use 'Component' from the named import to fix "Property 'props' does not exist on type 'ErrorBoundary'" error on line 50.
+// Fix: Using Component directly from the named import and adding a constructor to ensure props and state are correctly inferred.
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };

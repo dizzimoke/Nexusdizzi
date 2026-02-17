@@ -1,12 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
+// --- Environment Detection ---
+// Direct requirement: Detect AI Studio or Localhost for Dual-Engine logic.
+export const isPreview = typeof window !== 'undefined' && (
+  window.location.hostname.includes('aistudio') || 
+  window.location.hostname.includes('localhost') ||
+  window.location.hostname.includes('127.0.0.1')
+);
+
 // --- Production Configuration ---
-// These credentials connect directly to the Supabase backend.
 export const supabaseUrl = 'https://vkqkzdzhojmqfjkpfaey.supabase.co';
 export const supabaseAnonKey = 'sb_publishable_Dc20iGatEqfX4Njz-ye1lQ_bfhJwVMI';
 
 /**
- * Initialize Supabase client for Production.
+ * Initialize Supabase client.
  */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -70,9 +77,15 @@ export interface NexusFile {
 
 /**
  * uploadToVault: Transmits raw data to Supabase Storage.
- * Buckets: 'vault' (The Observer), 'nexus_files' (Nexus Air).
+ * In Preview: Returns a local Blob URL to avoid fetch errors.
  */
 export const uploadToVault = async (file: File, bucket: string): Promise<{ publicUrl: string; path: string }> => {
+  if (isPreview) {
+    console.log('[System] Preview Mode: Simulating Uplink');
+    const localUrl = URL.createObjectURL(file);
+    return { publicUrl: localUrl, path: 'local_temp_' + Date.now() };
+  }
+
   if (!supabase) throw new Error("SYSTEM_OFFLINE: Database link not initialized");
 
   const fileExt = file.name.split('.').pop();
@@ -80,8 +93,6 @@ export const uploadToVault = async (file: File, bucket: string): Promise<{ publi
   const filePath = fileName;
 
   try {
-    console.log(`[Uplink] Transmitting to bucket: ${bucket}, path: ${filePath}`);
-
     const { data, error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(filePath, file, {
@@ -90,7 +101,7 @@ export const uploadToVault = async (file: File, bucket: string): Promise<{ publi
       });
 
     if (uploadError) {
-      console.error(`[Uplink] Transmission Failure (${bucket}):`, uploadError);
+      console.error(`[Production Storage] Transmission Failure (${bucket}):`, uploadError.message);
       throw uploadError;
     }
 
@@ -98,13 +109,11 @@ export const uploadToVault = async (file: File, bucket: string): Promise<{ publi
       .from(bucket)
       .getPublicUrl(filePath);
 
-    if (!publicUrl) {
-      throw new Error("Failed to generate public URL for asset");
-    }
+    if (!publicUrl) throw new Error("Failed to generate public URL");
 
     return { publicUrl, path: filePath };
-  } catch (err) {
-    console.error(`[Uplink] Critical failure in ${bucket}:`, err);
+  } catch (err: any) {
+    console.error(`[Production Storage] Critical failure in ${bucket}:`, err.message || err);
     throw err;
   }
 };
@@ -113,13 +122,14 @@ export const uploadToVault = async (file: File, bucket: string): Promise<{ publi
  * deleteFromVault: Removes an asset from Supabase storage.
  */
 export const deleteFromVault = async (path: string, bucket: string) => {
+  if (isPreview || path.startsWith('local_temp_')) return;
   try {
     const { error } = await supabase.storage.from(bucket).remove([path]);
     if (error) {
-      console.error(`[Uplink] Deletion Error (${bucket}):`, error.message);
+      console.error(`[Production Storage] Deletion Error (${bucket}):`, error.message);
     }
   } catch (e) {
-    console.error(`[Uplink] Unexpected deletion failure for ${path}:`, e);
+    console.error(`[Production Storage] Unexpected failure for ${path}:`, e);
   }
 };
 
@@ -127,15 +137,11 @@ export const deleteFromVault = async (path: string, bucket: string) => {
  * checkConnection: Health check for database reachability.
  */
 export const checkConnection = async (): Promise<boolean> => {
+  if (isPreview) return true;
   try {
     const { error } = await supabase.from('links').select('id').limit(1);
-    if (error) {
-      console.warn('[System] Connection probe returned error:', error.message);
-      return true; 
-    }
-    return true;
+    return !error;
   } catch (e) {
-    console.error('[System] Database Link Severed:', e);
     return false;
   }
 };

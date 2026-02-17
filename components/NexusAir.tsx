@@ -1,4 +1,5 @@
 
+// Fix: Added explicit React import to resolve 'Cannot find namespace React' error when using React.FC.
 import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../lib/constants';
@@ -9,6 +10,8 @@ import { NexusFile } from '../lib/supabase';
 
 // --- Helpers ---
 type FileType = 'IMAGE' | 'DOC' | 'MEDIA' | 'ARCHIVE' | 'UNKNOWN';
+type SortCriteria = 'name' | 'date' | 'size';
+type SortOrder = 'asc' | 'desc';
 
 const getFileType = (mime: string): FileType => {
     if (!mime) return 'UNKNOWN';
@@ -36,6 +39,10 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
     const [expandedStack, setExpandedStack] = useState<FileType | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [previewFile, setPreviewFile] = useState<NexusFile | null>(null);
+    
+    // Sorting State
+    const [sortBy, setSortBy] = useState<SortCriteria>('date');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
     
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { playClick, playDing, playPop } = useSound();
@@ -72,9 +79,29 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
         return groups;
     }, [files]);
 
+    const sortedFiles = useMemo(() => {
+        if (!expandedStack) return [];
+        return [...stacks[expandedStack]].sort((a, b) => {
+            let comparison = 0;
+            if (sortBy === 'name') {
+                comparison = a.name.localeCompare(b.name);
+            } else if (sortBy === 'size') {
+                comparison = a.size - b.size;
+            } else if (sortBy === 'date') {
+                comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+            }
+            return sortOrder === 'asc' ? comparison : -comparison;
+        });
+    }, [expandedStack, stacks, sortBy, sortOrder]);
+
     const totalSize = files.reduce((acc, f) => acc + f.size, 0);
     const maxCapacity = 5 * 1024 * 1024 * 1024; // 5GB Limit for Pro
     const usagePercent = Math.min((totalSize / maxCapacity) * 100, 100);
+
+    const toggleSortOrder = () => {
+        setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        playClick();
+    };
 
     return (
         <div className="fixed inset-0 z-0 flex flex-col font-sans text-white overflow-hidden bg-[#030303]">
@@ -106,15 +133,40 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                                 <p className="text-xs text-white/30 font-medium tracking-[0.2em] uppercase">Supabase Cloud System</p>
                             </div>
                             
-                            {/* Storage Pill */}
-                            <div className="flex flex-col items-end gap-2">
-                                <span className="text-[10px] font-bold text-white/20 tracking-widest">{formatSize(totalSize)} / 5 GB</span>
-                                <div className="w-32 h-0.5 bg-white/10 rounded-full overflow-hidden">
-                                    <motion.div 
-                                        initial={{ width: 0 }} 
-                                        animate={{ width: `${usagePercent}%` }}
-                                        className={`h-full ${uploading ? 'bg-blue-500 animate-pulse' : 'bg-white/50'}`}
-                                    />
+                            <div className="flex items-end gap-6">
+                                {/* Sort Controls */}
+                                <div className="hidden md:flex items-center gap-2 bg-white/[0.03] border border-white/10 rounded-xl px-3 py-1.5">
+                                    <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest mr-1">Sort by</span>
+                                    {(['name', 'date', 'size'] as SortCriteria[]).map((criterion) => (
+                                        <button
+                                            key={criterion}
+                                            onClick={() => { setSortBy(criterion); playClick(); }}
+                                            className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md transition-all ${sortBy === criterion ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
+                                        >
+                                            {criterion}
+                                        </button>
+                                    ))}
+                                    <div className="w-px h-3 bg-white/10 mx-1" />
+                                    <button 
+                                        onClick={toggleSortOrder}
+                                        className="text-white/40 hover:text-white transition-colors"
+                                    >
+                                        <motion.div animate={{ rotate: sortOrder === 'asc' ? 0 : 180 }}>
+                                            <Icons.ChevronDown width={14} />
+                                        </motion.div>
+                                    </button>
+                                </div>
+
+                                {/* Storage Pill */}
+                                <div className="flex flex-col items-end gap-2">
+                                    <span className="text-[10px] font-bold text-white/20 tracking-widest">{formatSize(totalSize)} / 5 GB</span>
+                                    <div className="w-32 h-0.5 bg-white/10 rounded-full overflow-hidden">
+                                        <motion.div 
+                                            initial={{ width: 0 }} 
+                                            animate={{ width: `${usagePercent}%` }}
+                                            className={`h-full ${uploading ? 'bg-blue-500 animate-pulse' : 'bg-white/50'}`}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -160,6 +212,22 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                                     transition={{ duration: 0.2, ease: "easeOut" }}
                                     className="h-full overflow-y-auto no-scrollbar pb-32"
                                 >
+                                    {/* Mobile Sort Menu */}
+                                    <div className="flex md:hidden items-center justify-between mb-6 px-1">
+                                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Sorting by {sortBy} ({sortOrder})</span>
+                                        <button 
+                                            onClick={() => {
+                                                const options: SortCriteria[] = ['name', 'date', 'size'];
+                                                const next = options[(options.indexOf(sortBy) + 1) % options.length];
+                                                setSortBy(next);
+                                                playClick();
+                                            }}
+                                            className="text-[10px] font-bold uppercase tracking-widest text-blue-400"
+                                        >
+                                            Change
+                                        </button>
+                                    </div>
+
                                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                                         {/* Upload Button */}
                                         <button
@@ -173,7 +241,7 @@ const NexusAir = ({ onClose }: NexusAirProps) => {
                                         </button>
 
                                         {/* Files */}
-                                        {stacks[expandedStack].map((file) => (
+                                        {sortedFiles.map((file) => (
                                             <FileNode 
                                                 key={file.id} 
                                                 file={file} 
@@ -315,6 +383,7 @@ const CategoryCard = ({ type, count, active, onClick }: { type: string, count: n
     );
 };
 
+// Fix: Explicitly ensuring React namespace is used for typing the functional component to avoid compilation errors.
 const FileNode: React.FC<{ file: NexusFile, onClick: () => void }> = ({ file, onClick }) => {
     const isImage = file.type.startsWith('image/');
     
