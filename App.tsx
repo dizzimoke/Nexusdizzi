@@ -10,11 +10,10 @@ import TheObserver from './components/TheObserver';
 import NexusAir from './components/NexusAir';
 import CloakViewer from './components/CloakViewer';
 import GhostSidebar from './components/GhostSidebar';
-import Auth from './components/Auth'; // Security Gate
 import { SPRING_CONFIG, Icons } from './lib/constants';
 import { useSound } from './lib/sound';
 import { NotificationProvider } from './components/NotificationProvider';
-import { checkConnection, supabase } from './lib/supabase';
+import { checkConnection } from './lib/supabase';
 
 // --- Error Boundary ---
 interface ErrorBoundaryProps {
@@ -95,10 +94,6 @@ const AppContent: React.FC = () => {
   const [cloakMessageId, setCloakMessageId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   
-  // Auth State
-  const [session, setSession] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  
   const [menuMode, setMenuMode] = useState<'orbital' | 'ghost'>(() => {
       try {
           if (typeof window !== 'undefined') {
@@ -113,43 +108,26 @@ const AppContent: React.FC = () => {
   const currentTheme = THEMES[activeTab] || THEMES[0];
   const [ripples, setRipples] = useState<{x: number, y: number, id: number}[]>([]);
 
-  // Auth & Connection Check
   useEffect(() => {
-      // 1. Check Session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-          setSession(session);
-          setAuthLoading(false);
-      });
+    const handleResize = () => {
+        const mobile = window.innerWidth < 1024;
+        setIsMobile(mobile);
+        if (mobile && menuMode === 'ghost') setMenuMode('orbital');
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setSession(session);
-      });
+    const params = new URLSearchParams(window.location.search);
+    const cloakId = params.get('cloak');
+    if (cloakId) setCloakMessageId(cloakId);
 
-      // 2. Connectivity
-      const verifyConnection = async () => {
-         const status = await checkConnection();
-         setIsOnline(status);
-      };
-      verifyConnection();
+    const verifyConnection = async () => {
+       const status = await checkConnection();
+       setIsOnline(status);
+    };
+    verifyConnection();
 
-      // 3. Resize Listener
-      const handleResize = () => {
-          const mobile = window.innerWidth < 1024;
-          setIsMobile(mobile);
-          if (mobile && menuMode === 'ghost') setMenuMode('orbital');
-      };
-      handleResize();
-      window.addEventListener('resize', handleResize);
-
-      // 4. Cloak URL Param
-      const params = new URLSearchParams(window.location.search);
-      const cloakId = params.get('cloak');
-      if (cloakId) setCloakMessageId(cloakId);
-
-      return () => {
-          window.removeEventListener('resize', handleResize);
-          subscription.unsubscribe();
-      };
+    return () => window.removeEventListener('resize', handleResize);
   }, [menuMode]);
 
   const toggleMenuMode = () => {
@@ -181,20 +159,9 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // --- SECURITY GATE ---
-  // If loading auth state, render nothing (or a loader)
-  if (authLoading) return null;
-
-  // If viewing a secure cloak link, allow bypass (Viewer handles its own security)
   if (cloakMessageId) {
       return <CloakViewer messageId={cloakMessageId} onClose={() => { setCloakMessageId(null); window.history.pushState({}, '', window.location.pathname); }} />;
   }
-
-  // If not authenticated, force Auth screen
-  if (!session) {
-      return <Auth />;
-  }
-  // ---------------------
 
   const titles = ['Toolbox', 'Vault', 'Links', 'The Cloak', 'Sentinel', 'Observer', 'Nexus Air'];
   const subtitles = ['Workspace Hub', 'Secure Vault', 'Quick Links', 'Encrypted Uplink', 'Recovery Sentinel', 'Visual Intel', 'Cloud Air'];
@@ -270,13 +237,6 @@ const AppContent: React.FC = () => {
                </div>
              </motion.div>
            </AnimatePresence>
-           
-           <button 
-              onClick={() => supabase.auth.signOut()} 
-              className="text-[9px] font-bold uppercase tracking-widest text-white/30 hover:text-red-500 transition-colors"
-           >
-              Logout
-           </button>
         </div>
 
         <div className="flex-1 w-full">
