@@ -1,4 +1,3 @@
-
 import React, { Component, useState, useEffect, ErrorInfo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
@@ -35,10 +34,7 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+  state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };

@@ -1,7 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCode from 'qrcode';
-import { Icons, SPRING_CONFIG } from '../lib/constants';
+import { Icons } from '../lib/constants';
 import { useSound } from '../lib/sound';
 import { useNotification } from './NotificationProvider';
 import { uploadToVault } from '../lib/supabase';
@@ -33,33 +34,41 @@ const FileShareWidget: React.FC = () => {
      setUploadProgress(0);
      playWhoosh();
 
+     // Visual progress bar simulation while uploading
      const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
             if (prev >= 90) {
                 clearInterval(progressInterval);
                 return 90;
             }
-            return prev + 10;
+            return prev + 15;
         });
-     }, 150);
+     }, 300);
 
      try {
-         // Bucket is standardized to 'nexus_files' to match Nexus Air cloud storage
-         const { publicUrl } = await uploadToVault(selectedFile, 'nexus_files');
+         // EXPLICITLY set bucket to 'public' as requested
+         const { publicUrl } = await uploadToVault(selectedFile, 'public');
          
          clearInterval(progressInterval);
          setUploadProgress(100);
          setShareUrl(publicUrl);
          
-         const qr = await QRCode.toDataURL(publicUrl, { margin: 2, width: 256, color: { dark: '#000000', light: '#ffffff' } });
+         // Generate QR Code
+         const qr = await QRCode.toDataURL(publicUrl, { 
+             margin: 2, 
+             width: 256, 
+             color: { dark: '#000000', light: '#ffffff' } 
+         });
          setQrCode(qr);
 
          playDing();
-         showNotification('File Ready for Transfer', 'success');
-     } catch (error) {
-         console.error(error);
-         showNotification('Transfer Failed', 'reminder');
+         showNotification('File Ready for AirDrop', 'success');
+     } catch (error: any) {
+         console.error("AirDrop Upload Failed:", error);
+         clearInterval(progressInterval);
+         showNotification(`Transfer Failed: ${error?.message || 'Check Console'}`, 'reminder');
          setFile(null);
+         setUploadProgress(0);
      } finally {
          setIsUploading(false);
      }
@@ -114,7 +123,7 @@ const FileShareWidget: React.FC = () => {
                    )}
 
                    <motion.div
-                      animate={isUploading ? { y: [0, -20, 0] } : { y: 0 }}
+                      animate={isUploading ? { y: [0, -10, 0] } : { y: 0 }}
                       transition={{ repeat: Infinity, duration: 2 }}
                       className={`relative z-10 w-20 h-20 rounded-3xl flex items-center justify-center transition-colors duration-500
                          ${isDragging ? 'bg-cyan-400 text-black shadow-[0_0_30px_rgba(34,211,238,0.5)]' : 'bg-white/5 text-white/50 border border-white/10 group-hover:bg-white/10 group-hover:text-white'}
@@ -154,30 +163,27 @@ const FileShareWidget: React.FC = () => {
                    initial={{ opacity: 0, scale: 0.9 }}
                    animate={{ opacity: 1, scale: 1 }}
                    exit={{ opacity: 0, scale: 0.9 }}
-                   className="flex-1 flex flex-col items-center relative"
+                   className="flex-1 flex flex-col items-center relative h-full justify-between"
                 >
-                    <div className="text-center mb-6">
-                        <h3 className="text-xl font-bold text-white tracking-tight truncate max-w-[200px] mx-auto">{file?.name}</h3>
-                        <p className="text-xs text-cyan-400 font-bold uppercase tracking-[0.2em] mt-1">Ready to Scan</p>
+                    <div className="text-center mt-2">
+                        <h3 className="text-lg font-bold text-white tracking-tight truncate max-w-[200px] mx-auto">{file?.name}</h3>
+                        <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mt-1">Scan to Download</p>
                     </div>
 
-                    <div className="bg-white p-4 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative group mb-6 border-[3px] border-cyan-400/50 animate-pulse">
-                        <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-400 to-blue-500 rounded-[2.8rem] opacity-50 blur-xl group-hover:opacity-80 transition-opacity" />
-                        <div className="relative bg-white rounded-[2rem] overflow-hidden p-2">
-                             {qrCode && <img src={qrCode} alt="Share QR" className="w-40 h-40 mix-blend-multiply" />}
+                    <div className="flex-1 flex items-center justify-center w-full">
+                        <div className="bg-white p-3 rounded-[2rem] shadow-[0_0_50px_rgba(34,211,238,0.3)] relative group border-4 border-cyan-400/20">
+                            <div className="absolute -inset-4 bg-gradient-to-tr from-cyan-400 to-blue-500 rounded-[3rem] opacity-20 blur-2xl group-hover:opacity-40 transition-opacity animate-pulse-slow" />
+                            <div className="relative bg-white rounded-[1.5rem] overflow-hidden">
+                                {qrCode ? (
+                                    <img src={qrCode} alt="Share QR" className="w-48 h-48 mix-blend-multiply" />
+                                ) : (
+                                    <div className="w-48 h-48 flex items-center justify-center text-black/20 font-bold uppercase text-xs tracking-widest">Generating QR...</div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="w-full flex flex-col gap-4">
-                        <div className="flex items-center justify-center gap-2">
-                             <div className="px-3 py-1 bg-white/5 rounded-full backdrop-blur-md border border-white/10 flex items-center gap-2">
-                                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                                <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
-                                    Expires 1h
-                                </span>
-                             </div>
-                        </div>
-
+                    <div className="w-full flex flex-col gap-3 mb-2">
                         <div className="flex gap-3 justify-center">
                             <button 
                                 onClick={() => {
@@ -186,13 +192,13 @@ const FileShareWidget: React.FC = () => {
                                         showNotification('Link Copied', 'info');
                                     }
                                 }}
-                                className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors"
+                                className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-colors border border-white/5"
                             >
                                 Copy Link
                             </button>
                             <button 
                                 onClick={reset}
-                                className="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors"
+                                className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-colors border border-red-500/20"
                             >
                                 Close
                             </button>

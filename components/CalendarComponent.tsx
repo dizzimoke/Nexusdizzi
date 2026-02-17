@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons, SPRING_CONFIG } from '../lib/constants';
 import { useTasks } from '../lib/hooks';
@@ -13,8 +14,6 @@ const getFirstDayOfMonth = (year: number, month: number) => {
   return new Date(year, month, 1).getDay();
 };
 
-// This component now strictly renders the full calendar view.
-// Expansion logic is handled by the parent Toolbox component.
 const CalendarComponent: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
@@ -52,7 +51,11 @@ const CalendarComponent: React.FC = () => {
       days.push(<div key={`empty-${i}`} className="h-8 sm:h-10" />);
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    // "Today" check using local system time
+    const now = new Date();
+    const realDay = now.getDate();
+    const realMonth = now.getMonth();
+    const realYear = now.getFullYear();
 
     // Days of current month
     for (let day = 1; day <= daysInMonth; day++) {
@@ -64,13 +67,23 @@ const CalendarComponent: React.FC = () => {
       
       const hasTask = tasks.some(t => t.date === dateStr && !t.is_completed);
       const isSelected = selectedDateStr === dateStr;
-      const isToday = dateStr === todayStr;
-
-      // Color logic based on Light/Dark Mode
-      const baseText = isLightMode ? 'text-black/80' : 'text-white/80';
-      const hoverBg = isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/10';
-      const todayText = 'text-apple-blue font-bold';
       
+      // Strict check for "Today"
+      const isToday = (day === realDay && currentMonth === realMonth && currentYear === realYear);
+
+      // Styles
+      const baseStyle = "relative h-8 sm:h-10 flex items-center justify-center rounded-full text-sm cursor-pointer transition-all";
+      const lightText = isLightMode ? 'text-black/80' : 'text-white/80';
+      const hoverStyle = isLightMode ? 'hover:bg-black/5' : 'hover:bg-white/10';
+      
+      // Today Highlight (Blue Glow)
+      const todayStyle = "bg-blue-600 text-white font-bold shadow-[0_0_15px_rgba(37,99,235,0.6)] z-10";
+      
+      // Selection Ring
+      const selectedStyle = isLightMode
+        ? 'ring-2 ring-black/20 font-bold bg-black/5'
+        : 'ring-1 ring-white/50 font-bold bg-white/10';
+
       days.push(
         <motion.div
           key={day}
@@ -80,18 +93,19 @@ const CalendarComponent: React.FC = () => {
             setSelectedDateStr(dateStr);
           }}
           className={`
-            relative h-8 sm:h-10 flex items-center justify-center rounded-full text-sm cursor-pointer transition-colors
-            ${isSelected ? 'bg-apple-blue text-white shadow-lg shadow-blue-500/30' : hoverBg}
-            ${isToday && !isSelected ? todayText : ''}
-            ${!isToday && !isSelected ? baseText : ''}
+            ${baseStyle}
+            ${isToday ? todayStyle : ''}
+            ${isSelected && !isToday ? selectedStyle : ''}
+            ${!isToday && !isSelected ? `${lightText} ${hoverStyle}` : ''}
           `}
         >
           {day}
-          {hasTask && !isSelected && (
-            <div className={`absolute bottom-1 w-1 h-1 rounded-full ${isToday ? 'bg-apple-blue' : (isLightMode ? 'bg-black/40' : 'bg-white/40')}`} />
+          {/* Task Dot Indicator */}
+          {hasTask && !isSelected && !isToday && (
+            <div className={`absolute bottom-1 w-1 h-1 rounded-full ${isLightMode ? 'bg-black/40' : 'bg-white/40'}`} />
           )}
-          {isSelected && hasTask && (
-             <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full" />
+          {hasTask && isToday && (
+             <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full opacity-80" />
           )}
         </motion.div>
       );
@@ -120,7 +134,7 @@ const CalendarComponent: React.FC = () => {
              <div className={`w-px h-4 mx-1 ${isLightMode ? 'bg-black/10' : 'bg-white/20'}`} />
 
              <button onClick={handlePrevMonth} className={`p-1 rounded-full transition-colors ${isLightMode ? 'hover:bg-black/5 text-black/70' : 'hover:bg-white/10 text-white/70'}`}><Icons.ChevronLeft width={16} /></button>
-             <span className="text-sm font-semibold w-24 text-center">{monthNames[currentMonth]} {currentYear}</span>
+             <span className="text-sm font-semibold w-24 text-center select-none">{monthNames[currentMonth]} {currentYear}</span>
              <button onClick={handleNextMonth} className={`p-1 rounded-full transition-colors ${isLightMode ? 'hover:bg-black/5 text-black/70' : 'hover:bg-white/10 text-white/70'}`}><Icons.ChevronRight width={16} /></button>
         </div>
       </div>
@@ -140,7 +154,7 @@ const CalendarComponent: React.FC = () => {
         </div>
       </div>
 
-      {/* Task Modal */}
+      {/* Task Modal Overlay */}
       <AnimatePresence>
         {selectedDateStr && (
            <TaskModal 
@@ -158,7 +172,7 @@ const CalendarComponent: React.FC = () => {
   );
 };
 
-// Sub-component for Daily Tasks (Modal Style)
+// Sub-component for Daily Tasks
 const TaskModal = ({ 
     dateStr, 
     onClose, 
@@ -244,13 +258,12 @@ const TaskModal = ({
                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
                              animate={{ opacity: 1, y: 0, scale: 1 }}
                              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-                             transition={{ type: "spring", stiffness: 500, damping: 30, mass: 1 }}
                              key={task.id} 
                              className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isLightMode ? 'bg-gray-50 border-black/5' : 'bg-white/5 border-white/5'}`}
                            >
                               <button 
                                 onClick={(e) => { e.stopPropagation(); toggleTask(task.id, !task.is_completed); }}
-                                className={`flex-shrink-0 transition-colors ${task.is_completed ? 'text-apple-blue' : (isLightMode ? 'text-black/20 hover:text-black/40' : 'text-white/20 hover:text-white/40')}`}
+                                className={`flex-shrink-0 transition-colors ${task.is_completed ? 'text-blue-500' : (isLightMode ? 'text-black/20 hover:text-black/40' : 'text-white/20 hover:text-white/40')}`}
                               >
                                  {task.is_completed ? <Icons.CheckCircle width={20} /> : <Icons.Circle width={20} />}
                               </button>
@@ -279,7 +292,7 @@ const TaskModal = ({
                         value={newTaskTitle}
                         onChange={(e) => setNewTaskTitle(e.target.value)}
                         placeholder="Add a new task..."
-                        className={`flex-1 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-apple-blue transition-colors ${
+                        className={`flex-1 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-colors ${
                             isLightMode 
                                 ? 'bg-white border-black/10 text-black placeholder-black/30' 
                                 : 'bg-black/20 border-white/10 text-white placeholder-white/20'
@@ -287,7 +300,7 @@ const TaskModal = ({
                       />
                       <button 
                         type="submit"
-                        className="bg-apple-blue text-white rounded-xl px-4 font-bold hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-blue-500/20"
+                        className="bg-blue-500 text-white rounded-xl px-4 font-bold hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-blue-500/20"
                       >
                          +
                       </button>
