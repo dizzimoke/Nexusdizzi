@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tesseract from 'tesseract.js';
@@ -11,7 +12,7 @@ import FileShareWidget from './FileShare';
 import MediaDownloader from './MediaDownloader';
 import ArchiveSqueezer from './ArchiveSqueezer';
 
-type WidgetId = 'spotify' | 'calendar' | 'currency' | 'image' | 'ocr' | 'clock' | 'qr' | 'fileshare' | 'downloader' | 'squeezer';
+type WidgetId = 'stream' | 'calendar' | 'currency' | 'image' | 'ocr' | 'clock' | 'qr' | 'fileshare' | 'downloader' | 'squeezer';
 
 interface ToolboxProps {
     onFocusChange?: (focused: boolean) => void;
@@ -92,13 +93,13 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       accent: "shadow-indigo-500/20"
     },
     { 
-      id: 'spotify' as const, 
-      title: 'Zen Mode', 
-      icon: Icons.Music, 
-      color: 'text-green-400', 
-      component: (props: any) => <SpotifyWidget {...props} zenMode={zenMode} setZenMode={setZenMode} setZenPlaylist={setZenPlaylist} />,
-      description: "Silence system alerts.",
-      accent: "shadow-green-500/20"
+      id: 'stream' as const, 
+      title: 'Nexus Stream', 
+      icon: Icons.Youtube, 
+      color: 'text-nexus-violet', 
+      component: (props: any) => <NexusStreamWidget {...props} zenMode={zenMode} setZenMode={setZenMode} />,
+      description: "Professional YouTube playlist player.",
+      accent: "shadow-nexus-violet/20"
     },
     { 
       id: 'currency' as const, 
@@ -198,8 +199,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
                      key={widget.id}
                      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1, ease: "circOut" } }}
                      className={`pointer-events-auto w-full bg-[#08080a] rounded-[3rem] p-8 lg:p-10 shadow-[0_40px_100px_rgba(0,0,0,0.8)] relative overflow-hidden border border-white/10 
-                        ${widget.id === 'spotify' 
-                            ? 'max-w-[600px] h-[450px]' 
+                        ${widget.id === 'stream' 
+                            ? 'max-w-[700px] h-[500px]' 
                             : 'max-w-lg lg:max-w-[500px] lg:max-h-[450px]'
                         }`}
                      transition={SPRING_CONFIG}
@@ -214,7 +215,7 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
                          <Icons.Close width={20} height={20} />
                       </button>
 
-                      <div className={`flex flex-col ${widget.id === 'spotify' ? 'h-full' : 'h-full lg:h-auto lg:min-h-0 min-h-[450px]'} relative z-10`}>
+                      <div className={`flex flex-col ${widget.id === 'stream' ? 'h-full' : 'h-full lg:h-auto lg:min-h-0 min-h-[450px]'} relative z-10`}>
                          <div className="flex items-center gap-6 mb-8">
                             <motion.div layoutId={`card-icon-${widget.id}`} className={`w-16 h-16 rounded-[1.5rem] bg-white/5 flex items-center justify-center ${widget.color} border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.2)]`}>
                                <widget.icon width={32} height={32} />
@@ -394,125 +395,148 @@ const QrWidget = () => {
     );
 }
 
-const SpotifyWidget = ({ zenMode, setZenMode, setZenPlaylist }: any) => {
-  const DEFAULT_PLAYLIST = '37i9dQZF1DWZeKCadgRdKQ';
-  const [playlistId, setPlaylistId] = useState(DEFAULT_PLAYLIST);
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputUrl, setInputUrl] = useState('');
-  const { showNotification, isMuted } = useNotification() as any; 
-  const { toggleMute } = useSound();
+const NexusStreamWidget = ({ zenMode, setZenMode }: any) => {
+  // Default to Lofi Girl radio if nothing saved
+  const DEFAULT_STREAM_ID = 'jfKfPfyJRdk'; 
+  const [streamId, setStreamId] = useState(DEFAULT_STREAM_ID);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  const { showNotification } = useNotification();
+  const { playClick, playDing } = useSound();
 
   useEffect(() => {
-    const saved = localStorage.getItem('nexus_spotify_id');
-    if (saved) setPlaylistId(saved);
+    const saved = localStorage.getItem('nexus_stream_id');
+    if (saved) setStreamId(saved);
   }, []);
 
-  const handleSave = () => {
-    let id = inputUrl.trim();
-    if (id.startsWith('spotify:playlist:')) {
-      id = id.replace('spotify:playlist:', '');
-    } else if (id.includes('/playlist/')) {
-       const parts = id.split('/playlist/');
-       if (parts.length > 1) {
-           id = parts[1].split('?')[0];
-       }
-    }
-
-    if (id && id.length > 5 && /^[a-zA-Z0-9]+$/.test(id)) {
-      setPlaylistId(id);
-      localStorage.setItem('nexus_spotify_id', id);
-      setZenPlaylist?.(id);
-      setIsEditing(false);
-      setInputUrl('');
-      showNotification?.('Playlist Source Updated', 'success');
-    }
+  const sendCommand = (func: string) => {
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({
+              event: 'command',
+              func: func,
+              args: []
+          }), '*');
+      }
   };
 
-  const handleToggle = () => {
-      setZenPlaylist?.(playlistId);
+  const togglePlay = () => {
+      if (isPlaying) {
+          sendCommand('pauseVideo');
+          setIsPlaying(false);
+      } else {
+          sendCommand('playVideo');
+          setIsPlaying(true);
+      }
+      playClick();
+  };
+
+  const handleSkip = (direction: 'next' | 'previous') => {
+      sendCommand(`${direction}Video`);
+      setIsPlaying(true);
+      playClick();
+  };
+
+  const handleFocusToggle = () => {
       setZenMode?.(!zenMode);
+      playClick();
   };
+
+  const handleSource = () => {
+      playClick();
+      const input = window.prompt("Paste YouTube Video or Playlist URL/ID:", streamId);
+      if (input) {
+          let newId = input.trim();
+          // Extract ID logic
+          const listMatch = newId.match(/[?&]list=([^#\&\?]+)/);
+          if (listMatch) {
+              newId = listMatch[1];
+          } else {
+              const vMatch = newId.match(/[?&]v=([^#\&\?]+)/);
+              if (vMatch) newId = vMatch[1];
+              else {
+                  const sMatch = newId.match(/youtu\.be\/([^#\&\?]+)/);
+                  if (sMatch) newId = sMatch[1];
+              }
+          }
+
+          setStreamId(newId);
+          localStorage.setItem('nexus_stream_id', newId);
+          setIsPlaying(true); 
+          playDing();
+          showNotification('Stream Signal Synced', 'success');
+      }
+  };
+
+  // Safe Origin for Embed (fixes Error 153)
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isPlaylist = streamId.startsWith('PL') || streamId.length > 20;
+  
+  // URL Construction
+  // 1. Playlist: Uses listType=playlist&list=ID
+  // 2. Video: Uses video ID + playlist=ID (loop hack) + loop=1
+  const src = isPlaylist
+    ? `https://www.youtube.com/embed?listType=playlist&list=${streamId}&autoplay=1&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}`
+    : `https://www.youtube.com/embed/${streamId}?autoplay=1&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}&loop=1&playlist=${streamId}`;
 
   return (
       <div className="space-y-4 h-full flex flex-col">
-        <div className="rounded-3xl overflow-hidden border border-white/5 shadow-inner relative flex-1 flex items-center justify-center bg-black/50 w-full">
-            {/* Visualizer Background */}
-            {!isEditing && (
-                <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
-                    <div className={`w-32 h-32 rounded-full bg-green-500 blur-[60px] transition-all duration-1000 ${zenMode ? 'scale-150 opacity-100' : 'scale-50 opacity-20'}`} />
-                </div>
-            )}
+        {/* Main Player Area */}
+        <div className="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl relative flex-1 bg-black w-full group">
+            {/* YouTube IFrame */}
+            <iframe
+                ref={iframeRef}
+                src={src}
+                title="Nexus Stream"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-auto"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+            />
 
-            {isEditing ? (
-               <div className="p-6 w-full max-w-md space-y-4 relative z-10">
-                  <div className="space-y-2">
-                    <label className="text-[9px] text-white/30 font-bold uppercase tracking-widest ml-1">Stream Source</label>
-                    <input 
-                        autoFocus
-                        value={inputUrl}
-                        onChange={(e) => setInputUrl(e.target.value)}
-                        placeholder="Spotify Playlist ID..."
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder-white/10 focus:outline-none focus:border-green-500 transition-all font-mono"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                     <button onClick={() => setIsEditing(false)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-bold transition-all uppercase">Cancel</button>
-                     <button onClick={handleSave} className="flex-1 py-3 bg-green-500 hover:bg-green-400 rounded-xl text-[10px] font-bold text-black transition-all shadow-lg shadow-green-500/20 uppercase">Update</button>
-                  </div>
-               </div>
-            ) : (
-               <div className="text-center relative z-10 flex flex-col items-center justify-center w-full px-8 gap-6">
-                   <div className="space-y-2 w-full">
-                       <h3 className="text-3xl font-bold text-white tracking-tight">{zenMode ? 'Focus Active' : 'System Idle'}</h3>
-                       <p className="text-white/40 font-mono text-sm w-full whitespace-nowrap overflow-hidden text-ellipsis px-8">
-                           {zenMode ? `PLAYING: ${playlistId}` : 'READY TO STREAM'}
-                       </p>
-                   </div>
-                   
-                   <div className="flex items-center gap-8">
-                        {/* Dummy Prev */}
-                       <button className="text-white/20 hover:text-white transition-colors p-2">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
-                       </button>
-
-                       <button 
-                          onClick={handleToggle}
-                          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-2xl hover:scale-105 active:scale-95 ${zenMode ? 'bg-white text-black' : 'bg-green-500 text-black'}`}
-                       >
-                           {zenMode ? (
-                               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
-                           ) : (
-                               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                           )}
-                       </button>
-                       
-                       {/* Dummy Next */}
-                       <button className="text-white/20 hover:text-white transition-colors p-2">
-                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
-                       </button>
-                   </div>
-               </div>
-            )}
+            {/* Glass Overlay (Fades on Hover) */}
+            <div className="absolute inset-0 bg-nexus-midnight/40 backdrop-blur-[1px] transition-opacity duration-500 opacity-100 group-hover:opacity-0 pointer-events-none" />
         </div>
         
-        <div className="flex gap-2 h-14 shrink-0">
-            {!isEditing && (
+        {/* Controls Bar */}
+        <div className="flex gap-4 h-16 shrink-0 items-center justify-between px-2">
+            <div className="flex gap-2">
+                 <button 
+                    onClick={() => handleSkip('previous')}
+                    className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all active:scale-95 border border-white/5"
+                 >
+                    <Icons.SkipBack width={20} />
+                 </button>
+                 
+                 <button 
+                    onClick={togglePlay}
+                    className={`w-16 h-12 rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg ${isPlaying ? 'bg-nexus-violet text-white shadow-nexus-violet/20' : 'bg-white text-black'}`}
+                 >
+                    {isPlaying ? <Icons.Pause width={20} /> : <Icons.Play width={20} />}
+                 </button>
+
+                 <button 
+                    onClick={() => handleSkip('next')}
+                    className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-all active:scale-95 border border-white/5"
+                 >
+                    <Icons.SkipForward width={20} />
+                 </button>
+            </div>
+
+            <div className="flex gap-3">
                 <button 
-                    onClick={() => setIsEditing(true)}
-                    className="flex-1 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-white/40 hover:text-white border border-white/5"
+                    onClick={handleSource}
+                    className="h-12 px-5 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-white/40 hover:text-white border border-white/5 transition-all flex items-center gap-2"
                 >
-                    <Icons.Settings width={12} height={12} /> 
-                    Config
+                    <Icons.Settings width={14} /> Source
                 </button>
-            )}
-             <button 
-                onClick={toggleMute}
-                className="flex-1 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-white/40 hover:text-white border border-white/5"
-            >
-                {/* Reusing existing mute toggle for system sounds */}
-                System SFX
-            </button>
+                <button 
+                    onClick={handleFocusToggle}
+                    className={`h-12 px-5 rounded-2xl text-[10px] font-bold uppercase tracking-widest border transition-all flex items-center gap-2 ${zenMode ? 'bg-white text-black border-white' : 'bg-white/5 text-white/40 border-white/5 hover:text-white'}`}
+                >
+                    {zenMode ? 'Focus On' : 'Focus Off'}
+                </button>
+            </div>
         </div>
       </div>
   );
