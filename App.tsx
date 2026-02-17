@@ -1,4 +1,5 @@
-import React, { useState, useEffect, ErrorInfo, useRef } from 'react';
+
+import React, { useState, useEffect, ErrorInfo, useRef, Component } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
 import Toolbox from './components/Toolbox';
@@ -543,13 +544,11 @@ const App: React.FC = () => {
     }
 
     return (
-        <React.Fragment>
-            <ErrorBoundary>
-                <NotificationProvider>
-                    <AppContent onLogout={handleLogout} />
-                </NotificationProvider>
-            </ErrorBoundary>
-        </React.Fragment>
+        <ErrorBoundary>
+            <NotificationProvider>
+                <AppContent onLogout={handleLogout} />
+            </NotificationProvider>
+        </ErrorBoundary>
     );
 };
 
