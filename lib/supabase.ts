@@ -1,6 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- Environment Detection ---
+// --- Safe Environment Detection ---
+// We use a safe accessor for import.meta.env to prevent "Cannot read properties of undefined" errors
+// in environments where Vite globals aren't injected or during raw ESM execution.
+const env = (import.meta as any).env || {};
+
+export const supabaseUrl = env.VITE_SUPABASE_URL as string;
+export const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string;
+
+// Detection for "Local Only" mode: Triggered if keys are missing or we are in a known sandbox
+export const isSystemConfigured = !!(supabaseUrl && supabaseAnonKey);
+
 export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('aistudio') ||
   window.location.hostname.includes('localhost') ||
@@ -9,32 +19,26 @@ export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('webcontainer')
 );
 
-// ✅ Vite ENV (literal access only)
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// We should only use the Cloud Engine if configured AND not specifically forced into local-only dev
+export const useCloudEngine = isSystemConfigured;
 
-// If env is missing, treat as preview/offline engine (DO NOT use fake placeholder URLs)
-const envMissing = !supabaseUrl || !supabaseAnonKey;
-export const isPreviewEffective = isPreview || envMissing;
+/**
+ * Initialize Supabase client.
+ * Using a safer initialization. If keys are missing, we create a dummy client 
+ * but the hooks will know to bypass it via useCloudEngine check.
+ */
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder'
+);
 
-if (envMissing) {
-  console.warn(
-    '⚠️ Missing Supabase env vars: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY. ' +
-    'Production database calls will be disabled until they are set.'
-  );
+if (!useCloudEngine) {
+  console.info('[System] Nexus Pro: Cloud Engine not configured or env missing. Operating in Local Engine mode.');
+} else {
+  console.info('[System] Nexus Pro: Cloud Engine detected. Initializing Secure Uplink.');
 }
 
-// Create client only when env exists, otherwise keep a harmless empty client.
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
-});
-
 // --- System Types ---
-
 export interface VaultItem {
   id: string;
   title: string;
@@ -81,13 +85,11 @@ export interface NexusFile {
 }
 
 // --- Storage Engine ---
-
 export const uploadToVault = async (
   file: File,
   bucket: string
 ): Promise<{ publicUrl: string; path: string }> => {
-  // Preview/offline: never attempt Supabase network calls
-  if (isPreviewEffective) {
+  if (!useCloudEngine) {
     const localUrl = URL.createObjectURL(file);
     return { publicUrl: localUrl, path: 'local_temp_' + Date.now() };
   }
@@ -100,7 +102,10 @@ export const uploadToVault = async (
     .from(bucket)
     .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    console.error(`[Uplink] Cloud Transmission Failure (${bucket}):`, uploadError.message);
+    throw uploadError;
+  }
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
   const publicUrl = data?.publicUrl;
@@ -111,19 +116,25 @@ export const uploadToVault = async (
 };
 
 export const deleteFromVault = async (path: string, bucket: string) => {
-  if (isPreviewEffective || path.startsWith('local_temp_')) return;
+  if (!useCloudEngine || path.startsWith('local_temp_')) return;
   const { error } = await supabase.storage.from(bucket).remove([path]);
-  if (error) console.error(`[Storage] delete failed (${bucket}):`, error.message);
+  if (error) console.error(`[Uplink] Cloud Deletion Error (${bucket}):`, error.message);
 };
 
+/**
+ * checkConnection: Health check for database reachability.
+ */
 export const checkConnection = async (): Promise<boolean> => {
-  // Preview/offline engine always "ok" to prevent UI from forcing offline
-  if (isPreviewEffective) return true;
-
+  if (!useCloudEngine) return true;
   try {
     const { error } = await supabase.from('links').select('id').limit(1);
-    return !error;
-  } catch {
+    if (error) {
+      console.error('[System] Cloud Link Test Failed:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('[System] Cloud Link unreachable:', e);
     return false;
   }
 };
