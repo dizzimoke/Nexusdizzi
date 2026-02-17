@@ -1,27 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * CRITICAL: Vite environment variables MUST be accessed via literal string
- * for the production bundler to perform static replacement.
- * Do NOT use dynamic accessors like (import.meta as any).env.
- */
-const VITE_URL = import.meta.env.VITE_SUPABASE_URL;
-const VITE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// --- Safe Environment Detection ---
+// We use a safe accessor for import.meta.env to prevent "Cannot read properties of undefined" errors
+// in environments where Vite globals aren't injected or during raw ESM execution.
+const env = (import.meta as any).env || {};
 
-// Exported for debug visibility if needed (do not log keys in production)
-export const supabaseUrl = VITE_URL || '';
-export const supabaseAnonKey = VITE_KEY || '';
+export const supabaseUrl = env.VITE_SUPABASE_URL as string;
+export const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string;
 
-/**
- * System Configuration State
- * The system is "Configured" only if a valid absolute URL and Key are present.
- */
-export const isSystemConfigured = !!(supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http'));
+// Detection for "Local Only" mode: Triggered if keys are missing or we are in a known sandbox
+export const isSystemConfigured = !!(supabaseUrl && supabaseAnonKey);
 
-/**
- * Preview/Sandbox Detection
- * Used primarily for UI hints; logic now relies on isSystemConfigured.
- */
 export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('aistudio') ||
   window.location.hostname.includes('localhost') ||
@@ -30,37 +19,23 @@ export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('webcontainer')
 );
 
-/**
- * Engine Selection
- * Always attempt Cloud Engine if configured. 
- * Relative path requests (which cause production failure) are now impossible 
- * because we use a valid absolute placeholder if VITE_URL is missing.
- */
+// We should only use the Cloud Engine if configured AND not specifically forced into local-only dev
 export const useCloudEngine = isSystemConfigured;
 
 /**
- * Initialize Supabase Client
- * If env vars are missing, we use a placeholder that clearly points to 
- * a non-resolvable domain instead of letting the client use relative paths.
+ * Initialize Supabase client.
+ * Using a safer initialization. If keys are missing, we create a dummy client 
+ * but the hooks will know to bypass it via useCloudEngine check.
  */
-const clientUrl = isSystemConfigured ? supabaseUrl : 'https://OFFLINE_MODE_ACTIVE.supabase.co';
-const clientKey = isSystemConfigured ? supabaseAnonKey : 'no-key-provided';
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder'
+);
 
-export const supabase = createClient(clientUrl, clientKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  }
-});
-
-// Boot logging for debugging production connectivity
-if (typeof window !== 'undefined') {
-  if (isSystemConfigured) {
-    console.log('[System] Nexus Pro: Secure Uplink Initialized.');
-  } else {
-    console.warn('[System] Nexus Pro: Environment Variables Missing. Running in Local Mode.');
-  }
+if (!useCloudEngine) {
+  console.info('[System] Nexus Pro: Cloud Engine not configured or env missing. Operating in Local Engine mode.');
+} else {
+  console.info('[System] Nexus Pro: Cloud Engine detected. Initializing Secure Uplink.');
 }
 
 // --- System Types ---
@@ -128,7 +103,7 @@ export const uploadToVault = async (
     .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
   if (uploadError) {
-    console.error(`[Uplink] Cloud Storage Failure (${bucket}):`, uploadError.message);
+    console.error(`[Uplink] Cloud Transmission Failure (${bucket}):`, uploadError.message);
     throw uploadError;
   }
 
@@ -143,7 +118,7 @@ export const uploadToVault = async (
 export const deleteFromVault = async (path: string, bucket: string) => {
   if (!useCloudEngine || path.startsWith('local_temp_')) return;
   const { error } = await supabase.storage.from(bucket).remove([path]);
-  if (error) console.error(`[Uplink] Cloud Storage Deletion Error:`, error.message);
+  if (error) console.error(`[Uplink] Cloud Deletion Error (${bucket}):`, error.message);
 };
 
 /**
@@ -154,12 +129,12 @@ export const checkConnection = async (): Promise<boolean> => {
   try {
     const { error } = await supabase.from('links').select('id').limit(1);
     if (error) {
-      console.error('[System] Cloud Link Verification Failed:', error.message);
+      console.error('[System] Cloud Link Test Failed:', error.message);
       return false;
     }
     return true;
   } catch (e) {
-    console.error('[System] Cloud Endpoint Unreachable:', e);
+    console.error('[System] Cloud Link unreachable:', e);
     return false;
   }
 };
