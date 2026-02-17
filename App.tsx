@@ -1,4 +1,4 @@
-import React, { Component, useState, useEffect, ErrorInfo, useRef } from 'react';
+import React, { useState, useEffect, ErrorInfo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
 import Toolbox from './components/Toolbox';
@@ -8,6 +8,7 @@ import TheCloak from './components/TheCloak';
 import TheSentinel from './components/TheSentinel';
 import TheObserver from './components/TheObserver';
 import NexusAir from './components/NexusAir';
+import NexusPlay from './components/NexusPlay';
 import CloakViewer from './components/CloakViewer';
 import GhostSidebar from './components/GhostSidebar';
 import Auth from './components/Auth';
@@ -23,6 +24,80 @@ declare global {
     onYouTubeIframeAPIReady: (() => void) | undefined;
   }
 }
+
+// --- Navigation Configuration (Single Source of Truth) ---
+export interface NavItem {
+  id: string;
+  label: string;
+  icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  color: string;
+  theme: {
+    blob1: string;
+    blob2: string;
+    blob3: string;
+    accent: string;
+    glow: string;
+  };
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  { 
+    id: 'toolbox', 
+    label: 'Toolbox', 
+    icon: Icons.Toolbox, 
+    color: 'text-cyan-400',
+    theme: { blob1: '#002040', blob2: '#004050', blob3: '#001020', accent: '#00F0FF', glow: 'rgba(0, 240, 255, 0.4)' }
+  },
+  { 
+    id: 'vault', 
+    label: 'Vault', 
+    icon: Icons.Vault, 
+    color: 'text-rose-500',
+    theme: { blob1: '#2a0a0a', blob2: '#1a0505', blob3: '#100000', accent: '#FF2A6D', glow: 'rgba(255, 42, 109, 0.4)' }
+  },
+  { 
+    id: 'links', 
+    label: 'Links', 
+    icon: Icons.Links, 
+    color: 'text-emerald-400',
+    theme: { blob1: '#022c22', blob2: '#064e3b', blob3: '#000000', accent: '#05FFA1', glow: 'rgba(5, 255, 161, 0.4)' }
+  },
+  { 
+    id: 'cloak', 
+    label: 'The Cloak', 
+    icon: Icons.Cloak, 
+    color: 'text-white',
+    theme: { blob1: '#000000', blob2: '#050505', blob3: '#020202', accent: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.2)' }
+  },
+  { 
+    id: 'sentinel', 
+    label: 'Sentinel', 
+    icon: Icons.Fingerprint, 
+    color: 'text-amber-500',
+    theme: { blob1: '#271a00', blob2: '#1a1000', blob3: '#0a0500', accent: '#FFB800', glow: 'rgba(255, 184, 0, 0.4)' }
+  },
+  { 
+    id: 'observer', 
+    label: 'Observer', 
+    icon: Icons.Aperture, 
+    color: 'text-lime-400',
+    theme: { blob1: '#0a1f0a', blob2: '#051005', blob3: '#000000', accent: '#39FF14', glow: 'rgba(57, 255, 20, 0.4)' }
+  },
+  { 
+    id: 'air', 
+    label: 'Nexus Air', 
+    icon: Icons.AirPlay, 
+    color: 'text-indigo-400',
+    theme: { blob1: '#0c0a20', blob2: '#050510', blob3: '#1a1033', accent: '#818cf8', glow: 'rgba(129, 140, 248, 0.4)' }
+  },
+  { 
+    id: 'play', 
+    label: 'Nexus Play', 
+    icon: Icons.Gamepad, 
+    color: 'text-purple-500',
+    theme: { blob1: '#2e0230', blob2: '#4a044e', blob3: '#000000', accent: '#d946ef', glow: 'rgba(217, 70, 239, 0.4)' }
+  }
+];
 
 // --- Error Boundary ---
 interface ErrorBoundaryProps {
@@ -216,24 +291,6 @@ const GlobalYouTubePlayer: React.FC = () => {
     );
 };
 
-// --- Theme Configurations (Updated for Nexus Air Aesthetic) ---
-const THEMES = [
-  // Toolbox: Deep Blue & Cyan
-  { id: 'toolbox', blob1: '#002040', blob2: '#004050', blob3: '#001020', accent: '#00F0FF', glow: 'rgba(0, 240, 255, 0.4)' },
-  // Vault: Deep Red & Violet
-  { id: 'vault', blob1: '#2a0a0a', blob2: '#1a0505', blob3: '#100000', accent: '#FF2A6D', glow: 'rgba(255, 42, 109, 0.4)' },
-  // Links: Emerald & Teal
-  { id: 'links', blob1: '#022c22', blob2: '#064e3b', blob3: '#000000', accent: '#05FFA1', glow: 'rgba(5, 255, 161, 0.4)' },
-  // Cloak: Pure Darkness & White
-  { id: 'cloak', blob1: '#000000', blob2: '#050505', blob3: '#020202', accent: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.2)' },
-  // Sentinel: Amber & Gold
-  { id: 'sentinel', blob1: '#271a00', blob2: '#1a1000', blob3: '#0a0500', accent: '#FFB800', glow: 'rgba(255, 184, 0, 0.4)' },
-  // Observer: Toxic Green
-  { id: 'observer', blob1: '#0a1f0a', blob2: '#051005', blob3: '#000000', accent: '#39FF14', glow: 'rgba(57, 255, 20, 0.4)' },
-  // Air: Deep Indigo & Atmospheric Violet (Updated)
-  { id: 'air', blob1: '#0c0a20', blob2: '#050510', blob3: '#1a1033', accent: '#818cf8', glow: 'rgba(129, 140, 248, 0.4)' }
-];
-
 const MenuToggle = ({ mode, onToggle }: { mode: 'orbital' | 'ghost', onToggle: () => void }) => (
     <motion.button
         initial={{ opacity: 0, y: -20 }}
@@ -257,7 +314,7 @@ interface AppContentProps {
 }
 
 const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<string>('toolbox');
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [cloakMessageId, setCloakMessageId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
@@ -274,7 +331,9 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
   
   const [isMobile, setIsMobile] = useState(false);
   const { playClick } = useSound();
-  const currentTheme = THEMES[activeTab] || THEMES[0];
+  
+  const currentNav = NAV_ITEMS.find(item => item.id === activeTab) || NAV_ITEMS[0];
+  const currentTheme = currentNav.theme;
   const [ripples, setRipples] = useState<{x: number, y: number, id: number}[]>([]);
 
   // Setup
@@ -323,13 +382,14 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 0: return <Toolbox onFocusChange={setIsFocusMode} />;
-      case 1: return <Vault onFocusChange={setIsFocusMode} />;
-      case 2: return <SmartLinks onFocusChange={setIsFocusMode} />;
-      case 3: return <TheCloak onSimulateReceiver={setCloakMessageId} />;
-      case 4: return <TheSentinel onClose={() => setActiveTab(0)} />;
-      case 5: return <TheObserver onClose={() => setActiveTab(0)} onNavigate={setActiveTab} />;
-      case 6: return <NexusAir onClose={() => setActiveTab(0)} />;
+      case 'toolbox': return <Toolbox onFocusChange={setIsFocusMode} />;
+      case 'vault': return <Vault onFocusChange={setIsFocusMode} />;
+      case 'links': return <SmartLinks onFocusChange={setIsFocusMode} />;
+      case 'cloak': return <TheCloak onSimulateReceiver={setCloakMessageId} />;
+      case 'sentinel': return <TheSentinel onClose={() => setActiveTab('toolbox')} />;
+      case 'observer': return <TheObserver onClose={() => setActiveTab('toolbox')} onNavigate={(id: number) => { const item = NAV_ITEMS[id]; if (item) setActiveTab(item.id); else setActiveTab('toolbox'); }} />;
+      case 'air': return <NexusAir onClose={() => setActiveTab('toolbox')} />;
+      case 'play': return <NexusPlay onClose={() => setActiveTab('toolbox')} />;
       default: return <Toolbox onFocusChange={setIsFocusMode} />;
     }
   };
@@ -339,8 +399,19 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
       return <CloakViewer messageId={cloakMessageId} onClose={() => { setCloakMessageId(null); window.history.pushState({}, '', window.location.pathname); }} />;
   }
 
-  const titles = ['Toolbox', 'Vault', 'Links', 'The Cloak', 'Sentinel', 'Observer', 'Nexus Air'];
-  const subtitles = ['Workspace Hub', 'Secure Vault', 'Quick Links', 'Encrypted Uplink', 'Recovery Sentinel', 'Visual Intel', 'Cloud Air'];
+  const getSubtitle = (id: string) => {
+      switch(id) {
+          case 'toolbox': return 'Workspace Hub';
+          case 'vault': return 'Secure Vault';
+          case 'links': return 'Quick Links';
+          case 'cloak': return 'Encrypted Uplink';
+          case 'sentinel': return 'Recovery Sentinel';
+          case 'observer': return 'Visual Intel';
+          case 'air': return 'Cloud Air';
+          case 'play': return 'Gaming Intel';
+          default: return 'System';
+      }
+  };
 
   return (
     <div 
@@ -354,7 +425,7 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
       <AnimatePresence>
         {menuMode === 'ghost' && !isMobile && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <GhostSidebar onNavigate={setActiveTab} currentTab={activeTab} />
+                <GhostSidebar onNavigate={(id) => setActiveTab(id)} currentTab={activeTab} navItems={NAV_ITEMS} />
             </motion.div>
         )}
       </AnimatePresence>
@@ -367,7 +438,7 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
         
         {/* Nexus Air Atmospheric Override */}
         <AnimatePresence>
-            {activeTab === 6 && (
+            {activeTab === 'air' && (
                 <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -412,10 +483,10 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
         <div className="mb-12 flex items-end justify-between">
            <AnimatePresence mode="wait">
              <motion.div key={activeTab} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.4, ease: "circOut" }}>
-               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">{titles[activeTab]}</h1>
+               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">{currentNav.label}</h1>
                <div className="flex items-center gap-3 mt-2">
                  <div className="w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_currentColor]" style={{ backgroundColor: currentTheme.accent, color: currentTheme.accent }} />
-                 <p className="text-sm text-white/50 font-medium tracking-[0.2em] uppercase" style={{ textShadow: `0 0 20px ${currentTheme.glow}` }}>{subtitles[activeTab]}</p>
+                 <p className="text-sm text-white/50 font-medium tracking-[0.2em] uppercase" style={{ textShadow: `0 0 20px ${currentTheme.glow}` }}>{getSubtitle(activeTab)}</p>
                  {!isOnline && (
                      <span className="ml-4 px-2 py-0.5 bg-red-500/10 border border-red-500/50 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">Offline Mode</span>
                  )}
@@ -441,7 +512,7 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
       </main>
 
       {(!isFocusMode || isMobile) && (menuMode === 'orbital' || isMobile) && (
-        <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} isFocusMode={isFocusMode} />
+        <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} navItems={NAV_ITEMS} />
       )}
     </div>
   );
@@ -472,11 +543,13 @@ const App: React.FC = () => {
     }
 
     return (
-        <ErrorBoundary>
-            <NotificationProvider>
-                <AppContent onLogout={handleLogout} />
-            </NotificationProvider>
-        </ErrorBoundary>
+        <React.Fragment>
+            <ErrorBoundary>
+                <NotificationProvider>
+                    <AppContent onLogout={handleLogout} />
+                </NotificationProvider>
+            </ErrorBoundary>
+        </React.Fragment>
     );
 };
 
