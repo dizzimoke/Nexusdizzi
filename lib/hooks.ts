@@ -10,6 +10,7 @@ import {
   SmartLink,
   useCloudEngine
 } from './supabase';
+import { useNotification } from '../components/NotificationProvider';
 
 export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
 
@@ -49,6 +50,7 @@ const setStorageData = (key: string, data: any[]) => {
 export const useSmartLinks = () => {
   const [links, setLinks] = useState<SmartLink[]>(() => getStorageData('links'));
   const [loading, setLoading] = useState(true);
+  const { showNotification } = useNotification();
 
   const fetchLinks = useCallback(async () => {
     if (!useCloudEngine) {
@@ -71,11 +73,14 @@ export const useSmartLinks = () => {
       }
     } catch (err: any) {
       console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
+      if (err.message === 'Failed to fetch') {
+        showNotification('Nexus Cloud unreachable. Using local cache.', 'reminder');
+      }
       setLinks(getStorageData('links'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showNotification]);
 
   useEffect(() => {
     fetchLinks();
@@ -101,6 +106,7 @@ export const useSmartLinks = () => {
       return true;
     } catch (err: any) {
       console.error('[System] Add Link Failed:', err?.message);
+      showNotification('Could not save link to cloud.', 'reminder');
       return false;
     }
   };
@@ -119,6 +125,7 @@ export const useSmartLinks = () => {
       await fetchLinks();
     } catch (err: any) {
       console.error('[System] Delete Link Failed:', err?.message);
+      showNotification('Could not remove link from cloud.', 'reminder');
       const updated = links.filter((l) => l.id !== id);
       setLinks(updated);
     }
@@ -133,6 +140,7 @@ export const useSmartLinks = () => {
 export const useVaultItems = () => {
   const [items, setItems] = useState<VaultItem[]>(() => getStorageData('vault'));
   const [loading, setLoading] = useState(true);
+  const { showNotification } = useNotification();
 
   const fetchItems = useCallback(async () => {
     if (!useCloudEngine) {
@@ -155,11 +163,14 @@ export const useVaultItems = () => {
       }
     } catch (err: any) {
       console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
+      if (err.message === 'Failed to fetch') {
+        showNotification('Secure Uplink failed. Accessing local vault.', 'reminder');
+      }
       setItems(getStorageData('vault'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showNotification]);
 
   useEffect(() => {
     fetchItems();
@@ -191,6 +202,7 @@ export const useVaultItems = () => {
       return true;
     } catch (err: any) {
       console.error('[System] Add Vault Item Failed:', err?.message);
+      showNotification('Encryption sync failed.', 'reminder');
       return false;
     }
   };
@@ -210,6 +222,7 @@ export const useVaultItems = () => {
       return true;
     } catch (err: any) {
       console.error('[System] Update Vault Item Failed:', err?.message);
+      showNotification('Update sync failed.', 'reminder');
       const updated = items.map((i) => (i.id === id ? { ...i, ...updates } : i));
       setItems(updated);
       return false;
@@ -231,6 +244,7 @@ export const useVaultItems = () => {
       return true;
     } catch (err: any) {
       console.error('[System] Delete Vault Item Failed:', err?.message);
+      showNotification('Deletion sync failed.', 'reminder');
       const updated = items.filter((i) => i.id !== id);
       setItems(updated);
       return false;
@@ -246,6 +260,7 @@ export const useVaultItems = () => {
 export const useObserver = () => {
   const [evidence, setEvidence] = useState<ObserverLog[]>(() => getStorageData('observer'));
   const [loading, setLoading] = useState(true);
+  const { showNotification } = useNotification();
 
   const fetchEvidence = useCallback(async () => {
     if (!useCloudEngine) {
@@ -304,6 +319,7 @@ export const useObserver = () => {
       return true;
     } catch (err: any) {
       console.error('[System] Add Evidence Failed:', err?.message);
+      showNotification('Evidence logging failed.', 'reminder');
       return false;
     }
   };
@@ -365,6 +381,7 @@ export const useNexusFiles = () => {
   const [files, setFiles] = useState<NexusFile[]>(() => getStorageData('files'));
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const { showNotification } = useNotification();
 
   const fetchFiles = useCallback(async () => {
     if (!useCloudEngine) {
@@ -427,6 +444,7 @@ export const useNexusFiles = () => {
       return true;
     } catch (err: any) {
       console.error('[System] File Upload Failed:', err?.message);
+      showNotification('Cloud storage upload failed.', 'reminder');
       return false;
     } finally {
       setUploading(false);
@@ -464,6 +482,7 @@ export const useNexusFiles = () => {
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>(() => getStorageData('tasks'));
   const [loading, setLoading] = useState(true);
+  const { showNotification } = useNotification();
 
   const fetchTasks = useCallback(async () => {
     if (!useCloudEngine) {
@@ -486,11 +505,14 @@ export const useTasks = () => {
       }
     } catch (err: any) {
       console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
+      if (err.message === 'Failed to fetch') {
+        showNotification('Task sync unavailable.', 'reminder');
+      }
       setTasks(getStorageData('tasks'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showNotification]);
 
   useEffect(() => {
     fetchTasks();
@@ -518,6 +540,7 @@ export const useTasks = () => {
       return true;
     } catch (err: any) {
       console.error('[System] Add Task Failed:', err?.message);
+      showNotification('Could not sync task.', 'reminder');
       return false;
     }
   };

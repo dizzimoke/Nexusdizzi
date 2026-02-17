@@ -1,20 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Literal access is REQUIRED for Vite production builds to inject environment variables
-const VITE_URL = import.meta.env.VITE_SUPABASE_URL;
-const VITE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const supabaseUrl = VITE_URL || '';
-export const supabaseAnonKey = VITE_KEY || '';
+// --- Safe Environment Detection ---
+/**
+ * CRITICAL: Use optional chaining to prevent crashes if import.meta.env is missing.
+ * Vite will still perform static replacement for the literal strings during build.
+ */
+export const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || '';
+export const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
 /**
  * useCloudEngine: Boolean flag to determine if Supabase should be used.
  * Must be an absolute URL to avoid relative path requests in production.
  */
 export const useCloudEngine = !!(
-  VITE_URL && 
-  VITE_KEY && 
-  VITE_URL.startsWith('http')
+  supabaseUrl && 
+  supabaseAnonKey && 
+  supabaseUrl.startsWith('http')
 );
 
 export const isPreview = typeof window !== 'undefined' && (
@@ -30,8 +31,8 @@ export const isPreview = typeof window !== 'undefined' && (
  * Using a placeholder URL if missing to prevent relative-path errors (net::ERR_NAME_NOT_RESOLVED)
  */
 export const supabase = createClient(
-  useCloudEngine ? VITE_URL : 'https://OFFLINE_MODE.supabase.co',
-  useCloudEngine ? VITE_KEY : 'no-key'
+  useCloudEngine ? supabaseUrl : 'https://OFFLINE_MODE.supabase.co',
+  useCloudEngine ? supabaseAnonKey : 'no-key'
 );
 
 // --- Logging for production debugging ---
