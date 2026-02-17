@@ -1,17 +1,19 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from 'framer-motion';
+
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Icons, SPRING_CONFIG } from '../lib/constants';
 import { useSound } from '../lib/sound';
 import { getRemainingTime } from '../lib/totp';
+import { NavItem } from '../App';
 
 interface DockProps {
-  activeTab: number;
-  setActiveTab: (index: number) => void;
+  activeTab: string;
+  setActiveTab: (id: string) => void;
   accentColor: string;
-  isFocusMode: boolean;
+  navItems: NavItem[];
 }
 
-const Dock: React.FC<DockProps> = ({ activeTab, setActiveTab, accentColor, isFocusMode }) => {
+const Dock: React.FC<DockProps> = ({ activeTab, setActiveTab, accentColor, navItems }) => {
   const [isPC, setIsPC] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30);
 
@@ -32,42 +34,34 @@ const Dock: React.FC<DockProps> = ({ activeTab, setActiveTab, accentColor, isFoc
   }, []);
 
   if (isPC) {
-      return <OrbitalDock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={accentColor} timeLeft={timeLeft} />;
+      return <OrbitalDock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={accentColor} timeLeft={timeLeft} navItems={navItems} />;
   }
 
-  return <MobileDock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={accentColor} timeLeft={timeLeft} />;
+  return <MobileDock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={accentColor} timeLeft={timeLeft} navItems={navItems} />;
 };
 
 // --- PC ORBITAL DOCK ---
-const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => {
+const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft, navItems }: any) => {
     const [expanded, setExpanded] = useState(false);
-    const { playWhoosh, playTick, playPop } = useSound();
+    const { playWhoosh, playPop } = useSound();
 
     const toggle = () => {
         setExpanded(!expanded);
         playWhoosh();
     };
 
-    const handleSelect = (id: number) => {
+    const handleSelect = (id: string) => {
         setActiveTab(id);
         setExpanded(false);
         playPop();
     };
 
-    // 7 Items Symmetrical Arc (Centered at 90 degrees)
-    // Spacing: ~22 degrees
-    const items = [
-        { id: 3, label: 'Cloak', icon: Icons.Cloak, angle: 156 },
-        { id: 1, label: 'Vault', icon: Icons.Vault, angle: 134 },
-        { id: 2, label: 'Links', icon: Icons.Links, angle: 112 },
-        { id: 0, label: 'Toolbox', icon: Icons.Toolbox, angle: 90 }, // Center
-        { id: 6, label: 'Air', icon: Icons.AirPlay, angle: 68 },
-        { id: 4, label: 'Sentinel', icon: Icons.Fingerprint, angle: 46 },
-        { id: 5, label: 'Observer', icon: Icons.Aperture, angle: 24 },
-    ];
-
     const radius = 180;
-
+    const totalItems = navItems.length;
+    // Calculate math: Spread 180 degrees (PI). 
+    // Start from Left (180deg) to Right (0deg).
+    // Angle = 180 - (index * (180 / (total - 1)))
+    
     return (
         <>
             <AnimatePresence>
@@ -84,10 +78,19 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
 
             <div className="fixed bottom-[50px] left-1/2 -translate-x-1/2 z-50 flex items-center justify-center">
                 <AnimatePresence>
-                    {expanded && items.map((item) => {
-                        const rad = (item.angle * Math.PI) / 180;
+                    {expanded && navItems.map((item: NavItem, index: number) => {
+                        // Mathematical Distribution
+                        // We map index 0 to 180 degrees (Left) and index N to 0 degrees (Right)
+                        const angleDeg = 180 - (index * (180 / (totalItems - 1)));
+                        const rad = (angleDeg * Math.PI) / 180;
                         const x = Math.cos(rad) * radius; 
-                        const y = -Math.sin(rad) * radius; 
+                        const y = -Math.sin(rad) * radius; // Negative because CSS Y is down
+
+                        const isActive = activeTab === item.id;
+                        // Determine color style
+                        const colorClass = item.color.includes('text-') 
+                            ? item.color.replace('text-', '') 
+                            : 'white'; // Fallback
 
                         return (
                             <motion.button
@@ -95,21 +98,21 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
                                 initial={{ x: 0, y: 0, scale: 0.5, opacity: 0 }}
                                 animate={{ x, y, scale: 1, opacity: 1 }}
                                 exit={{ x: 0, y: 0, scale: 0.5, opacity: 0 }}
-                                transition={{ duration: 0.2, ease: "easeOut" }}
+                                transition={{ duration: 0.3, ease: "backOut", delay: index * 0.02 }}
                                 onClick={() => handleSelect(item.id)}
                                 className={`absolute w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl border z-50 group hover:scale-110 transition-transform duration-200
-                                    ${activeTab === item.id 
+                                    ${isActive 
                                         ? 'bg-nexus-glass border-white text-white shadow-[0_0_30px_rgba(255,255,255,0.4)]' 
-                                        : item.id === 6 
-                                            ? 'bg-black/60 text-nexus-violet border-nexus-violet/50 shadow-[0_0_20px_rgba(112,0,255,0.3)]'
-                                            : item.id === 4 
-                                                ? 'bg-black/60 text-amber-500 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)]' 
-                                                : 'bg-black/40 text-white/70 border-white/10 hover:bg-white/10 hover:text-white shadow-xl'}
+                                        : `bg-black/60 ${item.color} border-white/10 shadow-lg`}
                                 `}
+                                style={{
+                                    borderColor: isActive ? 'white' : 'rgba(255,255,255,0.1)',
+                                    boxShadow: isActive ? `0 0 20px ${item.theme.accent}` : 'none'
+                                }}
                             >
                                 <div className="relative flex items-center justify-center w-full h-full">
                                     <item.icon width={24} height={24} />
-                                    {item.id === 4 && (
+                                    {item.id === 'sentinel' && (
                                         <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none overflow-visible">
                                             <circle cx="50%" cy="50%" r="28" fill="none" stroke="rgba(245, 158, 11, 0.2)" strokeWidth="2" />
                                             <motion.circle 
@@ -124,7 +127,7 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
                                         </svg>
                                     )}
                                 </div>
-                                <span className={`absolute -bottom-10 text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded-lg pointer-events-none whitespace-nowrap border border-white/10 ${item.id === 6 ? 'text-nexus-violet border-nexus-violet/30' : 'text-white'}`}>
+                                <span className={`absolute -bottom-10 text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded-lg pointer-events-none whitespace-nowrap border border-white/10 text-white`}>
                                     {item.label}
                                 </span>
                             </motion.button>
@@ -172,31 +175,24 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
 };
 
 // --- MOBILE LINEAR DOCK ---
-const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => {
+const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft, navItems }: any) => {
     const [isMobileExpanded, setIsMobileExpanded] = useState(false);
     const { playTick, playPop } = useSound();
     
-    const tabs = [
-        { id: 0, label: 'Toolbox', icon: Icons.Toolbox },
-        { id: 1, label: 'Vault', icon: Icons.Vault },
-        { id: 2, label: 'Links', icon: Icons.Links },
-        { id: 3, label: 'Cloak', icon: Icons.Cloak },
-        // ID 7 Removed
-        { id: 5, label: 'Observer', icon: Icons.Aperture },
-        { id: 4, label: 'Sentinel', icon: Icons.Fingerprint },
-        { id: 6, label: 'Air', icon: Icons.AirPlay },
-    ];
+    const primaryItems = navItems.slice(0, 3);
+    const secondaryItems = navItems.slice(3);
 
-    const isExtraActive = activeTab === 3 || activeTab === 4 || activeTab === 5 || activeTab === 6;
+    const activeItem = navItems.find((i: any) => i.id === activeTab) || navItems[0];
+    const isExtraActive = secondaryItems.some((i: any) => i.id === activeTab);
 
-    const handleMobileMenuSelect = (index: number) => {
-        setActiveTab(index);
+    const handleMobileMenuSelect = (id: string) => {
+        setActiveTab(id);
         setIsMobileExpanded(false);
         playPop();
     };
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-[400px] flex flex-col items-center justify-end pointer-events-none">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-[400px] flex flex-col items-center justify-end pointer-events-none">
             <AnimatePresence>
                 {isMobileExpanded && (
                     <motion.div
@@ -206,30 +202,16 @@ const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => 
                         transition={{ type: "spring", stiffness: 300, damping: 25 }}
                         className="absolute bottom-[110%] left-0 right-0 pointer-events-auto z-10 grid grid-cols-2 gap-2"
                     >
-                         <button 
-                            onClick={() => handleMobileMenuSelect(3)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 3 ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}
-                        >
-                            <Icons.Cloak width={14} /> Cloak
-                        </button>
-                        <button 
-                            onClick={() => handleMobileMenuSelect(5)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 5 ? 'bg-green-500 text-black' : 'text-white/60 hover:text-white'}`}
-                        >
-                            <Icons.Aperture width={14} /> Observer
-                        </button>
-                        <button 
-                            onClick={() => handleMobileMenuSelect(4)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 4 ? 'bg-amber-500 text-black' : 'text-white/60 hover:text-white'}`}
-                        >
-                            <Icons.Fingerprint width={14} /> Sentinel
-                        </button>
-                        <button 
-                            onClick={() => handleMobileMenuSelect(6)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 6 ? 'bg-nexus-violet text-white' : 'text-white/60 hover:text-nexus-violet'}`}
-                        >
-                            <Icons.AirPlay width={14} /> Air
-                        </button>
+                        {secondaryItems.map((item: any) => (
+                             <button 
+                                key={item.id}
+                                onClick={() => handleMobileMenuSelect(item.id)}
+                                className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === item.id ? 'bg-white text-black' : `text-white/60 hover:text-white`}`}
+                            >
+                                <item.icon width={14} className={activeTab === item.id ? 'text-black' : item.color} /> 
+                                {item.label}
+                            </button>
+                        ))}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -239,24 +221,23 @@ const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => 
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ ease: [0.4, 0, 0.2, 1], duration: 0.5 }}
             >
-                {[0, 1, 2].map((id) => (
+                {primaryItems.map((item: any) => (
                     <DockIcon
-                        key={id}
-                        tab={tabs[id]}
-                        isActive={activeTab === id}
-                        onClick={() => { setActiveTab(id); playTick(); setIsMobileExpanded(false); }}
+                        key={item.id}
+                        tab={item}
+                        isActive={activeTab === item.id}
+                        onClick={() => { setActiveTab(item.id); playTick(); setIsMobileExpanded(false); }}
                         accentColor={accentColor}
                     />
                 ))}
+                
                 <div className="relative flex items-center">
+                    {/* The "More" active indicator or current active secondary item */}
                     <DockIcon 
-                        tab={tabs.find(t => t.id === activeTab) || tabs[3]} 
+                        tab={isExtraActive ? activeItem : secondaryItems[0]} 
                         isActive={isExtraActive}
                         onClick={() => {
-                            if (activeTab === 3) setActiveTab(5);
-                            else if (activeTab === 5) setActiveTab(4);
-                            else if (activeTab === 4) setActiveTab(6);
-                            else setActiveTab(3);
+                            setIsMobileExpanded(true);
                             playTick();
                         }}
                         accentColor={accentColor}
