@@ -5,10 +5,7 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   define: {
-    // Ensuring 'process.env' is defined as an empty object to avoid runtime errors in some modules.
+    // Standardizing process.env for modules that might still expect it
     'process.env': {},
-    // Explicitly defining Supabase variables for Vercel build stability.
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://vkqkzdzhojmqfjkpfaey.supabase.co'),
-    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('sb_publishable_Dc20iGatEqfX4Njz-ye1lQ_bfhJwVMI'),
   }
 });

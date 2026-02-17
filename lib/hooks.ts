@@ -8,7 +8,7 @@ import {
   ObserverLog,
   NexusFile,
   SmartLink,
-  isPreviewEffective
+  useCloudEngine
 } from './supabase';
 
 export type { SmartLink, Task, VaultItem, ObserverLog, NexusFile };
@@ -51,7 +51,7 @@ export const useSmartLinks = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchLinks = useCallback(async () => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       setLinks(getStorageData('links'));
       setLoading(false);
       return;
@@ -70,7 +70,7 @@ export const useSmartLinks = () => {
         setStorageData('links', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Links). Using Cache.');
+      console.warn('[System] Cloud Sync Offline (Links). Using Cache. Error:', err?.message);
       setLinks(getStorageData('links'));
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export const useSmartLinks = () => {
   }, [fetchLinks]);
 
   const addLink = async (link: { title: string; url: string }) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const localItem: SmartLink = {
         id: makeId(),
         ...link,
@@ -106,7 +106,7 @@ export const useSmartLinks = () => {
   };
 
   const deleteLink = async (id: string) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = links.filter((l) => l.id !== id);
       setLinks(updated);
       setStorageData('links', updated);
@@ -119,9 +119,9 @@ export const useSmartLinks = () => {
       await fetchLinks();
     } catch (err: any) {
       console.error('[System] Delete Link Failed:', err?.message || err);
+      // Immediate optimistic update on failure to keep UI responsive
       const updated = links.filter((l) => l.id !== id);
       setLinks(updated);
-      setStorageData('links', updated);
     }
   };
 
@@ -136,7 +136,7 @@ export const useVaultItems = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchItems = useCallback(async () => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       setItems(getStorageData('vault'));
       setLoading(false);
       return;
@@ -155,7 +155,7 @@ export const useVaultItems = () => {
         setStorageData('vault', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Vault). Using Cache.');
+      console.warn('[System] Cloud Sync Offline (Vault). Using Cache. Error:', err?.message);
       setItems(getStorageData('vault'));
     } finally {
       setLoading(false);
@@ -167,7 +167,7 @@ export const useVaultItems = () => {
   }, [fetchItems]);
 
   const addItem = async (item: Partial<VaultItem>) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const localItem: VaultItem = {
         id: makeId(),
         title: item.title || '',
@@ -197,7 +197,7 @@ export const useVaultItems = () => {
   };
 
   const updateItem = async (id: string, updates: Partial<VaultItem>) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = items.map((i) => (i.id === id ? { ...i, ...updates } : i));
       setItems(updated);
       setStorageData('vault', updated);
@@ -213,13 +213,12 @@ export const useVaultItems = () => {
       console.error('[System] Update Vault Item Failed:', err?.message || err);
       const updated = items.map((i) => (i.id === id ? { ...i, ...updates } : i));
       setItems(updated);
-      setStorageData('vault', updated);
       return false;
     }
   };
 
   const deleteItem = async (id: string) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = items.filter((i) => i.id !== id);
       setItems(updated);
       setStorageData('vault', updated);
@@ -235,7 +234,6 @@ export const useVaultItems = () => {
       console.error('[System] Delete Vault Item Failed:', err?.message || err);
       const updated = items.filter((i) => i.id !== id);
       setItems(updated);
-      setStorageData('vault', updated);
       return false;
     }
   };
@@ -251,7 +249,7 @@ export const useObserver = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchEvidence = useCallback(async () => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       setEvidence(getStorageData('observer'));
       setLoading(false);
       return;
@@ -270,7 +268,7 @@ export const useObserver = () => {
         setStorageData('observer', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Observer). Using Cache.');
+      console.warn('[System] Cloud Sync Offline (Observer). Using Cache. Error:', err?.message);
       setEvidence(getStorageData('observer'));
     } finally {
       setLoading(false);
@@ -285,7 +283,7 @@ export const useObserver = () => {
     try {
       const { publicUrl } = await uploadToVault(file, 'vault');
 
-      if (isPreviewEffective) {
+      if (!useCloudEngine) {
         const localItem: ObserverLog = {
           id: makeId(),
           image_url: publicUrl,
@@ -312,7 +310,7 @@ export const useObserver = () => {
   };
 
   const deleteEvidence = async (id: string) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = evidence.filter((e) => e.id !== id);
       setEvidence(updated);
       setStorageData('observer', updated);
@@ -328,13 +326,12 @@ export const useObserver = () => {
       console.error('[System] Delete Evidence Failed:', err?.message || err);
       const updated = evidence.filter((e) => e.id !== id);
       setEvidence(updated);
-      setStorageData('observer', updated);
       return false;
     }
   };
 
   const updateEvidence = async (id: string, updates: Partial<ObserverLog>) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = evidence.map((e) => (e.id === id ? { ...e, ...updates } : e));
       setEvidence(updated);
       setStorageData('observer', updated);
@@ -350,7 +347,6 @@ export const useObserver = () => {
       console.error('[System] Update Observation Failed:', err?.message || err);
       const updated = evidence.map((e) => (e.id === id ? { ...e, ...updates } : e));
       setEvidence(updated);
-      setStorageData('observer', updated);
       return false;
     }
   };
@@ -372,7 +368,7 @@ export const useNexusFiles = () => {
   const [uploading, setUploading] = useState(false);
 
   const fetchFiles = useCallback(async () => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       setFiles(getStorageData('files'));
       setLoading(false);
       return;
@@ -391,7 +387,7 @@ export const useNexusFiles = () => {
         setStorageData('files', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Files). Using Cache.');
+      console.warn('[System] Cloud Sync Offline (Files). Using Cache. Error:', err?.message);
       setFiles(getStorageData('files'));
     } finally {
       setLoading(false);
@@ -407,7 +403,7 @@ export const useNexusFiles = () => {
     try {
       const { publicUrl, path } = await uploadToVault(file, 'nexus_files');
 
-      if (isPreviewEffective) {
+      if (!useCloudEngine) {
         const localItem: NexusFile = {
           id: makeId(),
           name: file.name,
@@ -439,7 +435,7 @@ export const useNexusFiles = () => {
   };
 
   const deleteFile = async (id: string, path: string) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = files.filter((f) => f.id !== id);
       setFiles(updated);
       setStorageData('files', updated);
@@ -456,7 +452,6 @@ export const useNexusFiles = () => {
       console.error('[System] File Deletion Error:', err?.message || err);
       const updated = files.filter((f) => f.id !== id);
       setFiles(updated);
-      setStorageData('files', updated);
       return false;
     }
   };
@@ -472,7 +467,7 @@ export const useTasks = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = useCallback(async () => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       setTasks(getStorageData('tasks'));
       setLoading(false);
       return;
@@ -491,7 +486,7 @@ export const useTasks = () => {
         setStorageData('tasks', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Tasks). Using Cache.');
+      console.warn('[System] Cloud Sync Offline (Tasks). Using Cache. Error:', err?.message);
       setTasks(getStorageData('tasks'));
     } finally {
       setLoading(false);
@@ -503,7 +498,7 @@ export const useTasks = () => {
   }, [fetchTasks]);
 
   const addTask = async (taskData: Partial<Task>) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const localItem: Task = {
         id: makeId(),
         date: taskData.date || new Date().toISOString().split('T')[0],
@@ -529,7 +524,7 @@ export const useTasks = () => {
   };
 
   const toggleTask = async (id: string, completed: boolean) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = tasks.map((t) => (t.id === id ? { ...t, is_completed: completed } : t));
       setTasks(updated);
       setStorageData('tasks', updated);
@@ -545,13 +540,12 @@ export const useTasks = () => {
       console.error('[System] Toggle Task Failed:', err?.message || err);
       const updated = tasks.map((t) => (t.id === id ? { ...t, is_completed: completed } : t));
       setTasks(updated);
-      setStorageData('tasks', updated);
       return false;
     }
   };
 
   const deleteTask = async (id: string) => {
-    if (isPreviewEffective) {
+    if (!useCloudEngine) {
       const updated = tasks.filter((t) => t.id !== id);
       setTasks(updated);
       setStorageData('tasks', updated);
@@ -567,7 +561,6 @@ export const useTasks = () => {
       console.error('[System] Delete Task Failed:', err?.message || err);
       const updated = tasks.filter((t) => t.id !== id);
       setTasks(updated);
-      setStorageData('tasks', updated);
       return false;
     }
   };
