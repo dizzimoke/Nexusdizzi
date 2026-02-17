@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useEffect, ErrorInfo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
@@ -34,8 +35,10 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Explicitly define state property
-  public state: ErrorBoundaryState = { hasError: false };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };
@@ -67,11 +70,26 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-// --- Global Player Component (Hidden/Persistent) ---
+// --- Global Player Component (Hidden/Persistent or Holographic) ---
 const GlobalYouTubePlayer: React.FC = () => {
     const playerRef = useRef<any>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [isReady, setIsReady] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
+
+    // Broadcast current state to the UI
+    const broadcastState = (evtData?: any) => {
+        if (!playerRef.current || !playerRef.current.getVolume) return;
+        
+        const state = evtData ? evtData : (playerRef.current.getPlayerState ? playerRef.current.getPlayerState() : -1);
+        const volume = playerRef.current.getVolume();
+        
+        const evt = new CustomEvent('nexus-state-update', { 
+            detail: { 
+                state: state, 
+                volume: volume 
+            } 
+        });
+        window.dispatchEvent(evt);
+    };
 
     useEffect(() => {
         // Load YouTube IFrame API
@@ -94,7 +112,7 @@ const GlobalYouTubePlayer: React.FC = () => {
                 width: '100%',
                 playerVars: {
                     autoplay: 0,
-                    controls: 0,
+                    controls: 0, // No controls, we use custom UI
                     disablekb: 1,
                     enablejsapi: 1,
                     origin: origin,
@@ -107,20 +125,13 @@ const GlobalYouTubePlayer: React.FC = () => {
                 events: {
                     onReady: (event: any) => {
                         playerRef.current = event.target;
-                        setIsReady(true);
                         // Restore Volume
                         const savedVol = localStorage.getItem('nexus_stream_vol');
                         if (savedVol) event.target.setVolume(parseInt(savedVol));
+                        broadcastState();
                     },
                     onStateChange: (event: any) => {
-                        // Dispatch state to UI (playing=1, paused=2)
-                        const evt = new CustomEvent('nexus-state-update', { 
-                            detail: { 
-                                state: event.data, 
-                                volume: playerRef.current?.getVolume() 
-                            } 
-                        });
-                        window.dispatchEvent(evt);
+                        broadcastState(event.data);
                     }
                 }
             };
@@ -130,22 +141,32 @@ const GlobalYouTubePlayer: React.FC = () => {
                 playerConfig.playerVars.list = savedId;
             } else {
                 playerConfig.videoId = savedId;
-                // Loop hack for single video
                 playerConfig.playerVars.playlist = savedId;
                 playerConfig.playerVars.loop = 1;
             }
 
-            playerRef.current = new window.YT.Player('global-player-frame', playerConfig);
+            // Clean up existing instance if React strict mode double-mounts
+            if (window.YT.Player) {
+                try {
+                    const existing = window.YT.get('global-player-frame');
+                    if (existing) existing.destroy();
+                } catch(e) {}
+                playerRef.current = new window.YT.Player('global-player-frame', playerConfig);
+            }
         };
 
         // Event Listeners for Remote Control
         const handleCommand = (e: CustomEvent) => {
-            if (!playerRef.current || !playerRef.current.playVideo) return;
+            if (!playerRef.current) return;
             const { command, value } = e.detail;
 
             switch (command) {
-                case 'play': playerRef.current.playVideo(); break;
-                case 'pause': playerRef.current.pauseVideo(); break;
+                case 'play': 
+                    playerRef.current.playVideo(); 
+                    break;
+                case 'pause': 
+                    playerRef.current.pauseVideo(); 
+                    break;
                 case 'next': 
                     if (playerRef.current.nextVideo) playerRef.current.nextVideo(); 
                     break;
@@ -156,8 +177,11 @@ const GlobalYouTubePlayer: React.FC = () => {
                     playerRef.current.setVolume(value); 
                     localStorage.setItem('nexus_stream_vol', value.toString());
                     break;
+                case 'focus':
+                    // "Holographic Mirror" mode: Move player behind the active widget
+                    setIsFocused(!!value);
+                    break;
                 case 'load':
-                    // Load new video/playlist
                     const isPlaylist = value.startsWith('PL') || value.length > 20;
                     if (isPlaylist) {
                         playerRef.current.loadPlaylist({list: value, listType: 'playlist'});
@@ -173,12 +197,22 @@ const GlobalYouTubePlayer: React.FC = () => {
         return () => window.removeEventListener('nexus-cmd' as any, handleCommand);
     }, []);
 
+    // HOLOGRAPHIC MIRROR STYLING
+    // When focused: Perfectly positioned behind the toolbox modal (z-index 65, modal is 70)
+    // When hidden: 1x1 pixel, opacity 0, hidden z-index
     return (
         <div 
             id="global-player-wrapper" 
-            className="fixed bottom-0 left-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden -z-50"
+            className={`transition-all duration-500 ease-in-out overflow-hidden bg-black pointer-events-none
+                ${isFocused 
+                    ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[700px] h-[500px] z-[65] opacity-100 rounded-[3rem] shadow-2xl' 
+                    : 'fixed bottom-0 left-0 w-1 h-1 opacity-0 -z-50'
+                }
+            `}
         >
-            <div id="global-player-frame" />
+            <div id="global-player-frame" className="w-full h-full object-cover" />
+            {/* Overlay to prevent interaction stealing when in background mode, or to darken slightly */}
+            {isFocused && <div className="absolute inset-0 bg-black/20 pointer-events-none" />}
         </div>
     );
 };

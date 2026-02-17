@@ -397,29 +397,49 @@ const QrWidget = () => {
 
 const NexusStreamWidget = ({ zenMode, setZenMode }: any) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(100);
+  // Initialize from storage to prevent snap-back on load
+  const [volume, setVolume] = useState(() => {
+      const saved = localStorage.getItem('nexus_stream_vol');
+      return saved ? parseInt(saved) : 100;
+  });
   const [streamId, setStreamId] = useState(() => localStorage.getItem('nexus_stream_id') || 'jfKfPfyJRdk');
   
   const { showNotification } = useNotification();
   const { playClick, playDing } = useSound();
-
-  // Sync with Global Player state
-  useEffect(() => {
-      const handleStateUpdate = (e: CustomEvent) => {
-          // YT State: 1 = Playing
-          setIsPlaying(e.detail.state === 1);
-          setVolume(e.detail.volume || 100);
-      };
-      window.addEventListener('nexus-state-update' as any, handleStateUpdate);
-      return () => window.removeEventListener('nexus-state-update' as any, handleStateUpdate);
-  }, []);
 
   const dispatchCommand = (command: string, value?: any) => {
       const evt = new CustomEvent('nexus-cmd', { detail: { command, value } });
       window.dispatchEvent(evt);
   };
 
+  // Holographic Mode: Trigger on mount/unmount
+  useEffect(() => {
+      dispatchCommand('focus', true);
+      return () => {
+          dispatchCommand('focus', false);
+      };
+  }, []);
+
+  // Sync with Global Player state
+  useEffect(() => {
+      const handleStateUpdate = (e: CustomEvent) => {
+          // YT State: 1 = Playing, 2 = Paused, 3 = Buffering
+          const newState = e.detail.state;
+          if (newState === 1) setIsPlaying(true);
+          if (newState === 2) setIsPlaying(false);
+          
+          // Only sync volume from event if it differs significantly to prevent jitter/loops
+          if (e.detail.volume !== undefined) {
+              setVolume((prev) => Math.abs(prev - e.detail.volume) > 2 ? e.detail.volume : prev);
+          }
+      };
+      window.addEventListener('nexus-state-update' as any, handleStateUpdate);
+      return () => window.removeEventListener('nexus-state-update' as any, handleStateUpdate);
+  }, []);
+
   const togglePlay = () => {
+      // Toggle local state optimistically for UI response
+      setIsPlaying(!isPlaying);
       dispatchCommand(isPlaying ? 'pause' : 'play');
       playClick();
   };
@@ -430,8 +450,8 @@ const NexusStreamWidget = ({ zenMode, setZenMode }: any) => {
   };
 
   const handleVolume = (val: number) => {
-      setVolume(val);
-      dispatchCommand('volume', val);
+      setVolume(val); // Immediate UI update
+      dispatchCommand('volume', val); // Dispatch to player
   };
 
   const handleFocusToggle = () => {
@@ -474,21 +494,23 @@ const NexusStreamWidget = ({ zenMode, setZenMode }: any) => {
 
   return (
       <div className="space-y-4 h-full flex flex-col">
-        {/* Main Visualizer Area */}
-        <div className="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl relative flex-1 bg-black w-full group flex flex-col items-center justify-center bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-20">
-            {/* Ambient Pulse */}
-            <div className={`absolute w-64 h-64 bg-nexus-violet rounded-full blur-[120px] transition-opacity duration-1000 ${isPlaying ? 'opacity-40 animate-pulse-slow' : 'opacity-10'}`} />
+        {/* Holographic Window Area - Transparent to see Global Player underneath */}
+        <div className="rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl relative flex-1 w-full group flex flex-col items-center justify-center bg-transparent">
+            {/* Minimal Overlay Info (Only when not playing or hovered) */}
+            <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full border border-white/10 transition-opacity duration-500 z-10 ${isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
+                <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                    <span className="text-[9px] font-bold text-white uppercase tracking-widest">
+                        {isPlaying ? 'LIVE FEED' : 'PAUSED'}
+                    </span>
+                </div>
+            </div>
             
-            <div className="relative z-10 flex flex-col items-center gap-4">
-                <div className={`w-24 h-24 rounded-full border-2 flex items-center justify-center backdrop-blur-md transition-all duration-500 ${isPlaying ? 'border-nexus-violet bg-nexus-violet/10 shadow-[0_0_50px_rgba(124,58,237,0.3)]' : 'border-white/10 bg-white/5'}`}>
-                    <Icons.Music width={40} className={isPlaying ? 'text-white' : 'text-white/30'} />
-                </div>
-                <div className="text-center">
-                    <h3 className="text-white font-bold tracking-tight">Nexus Audio Engine</h3>
-                    <p className="text-[10px] text-white/40 font-mono mt-1 uppercase tracking-widest">
-                        {isPlaying ? 'LIVE STREAM ACTIVE' : 'SYSTEM STANDBY'}
-                    </p>
-                </div>
+            {/* Central Play/Pause for huge click area if needed, though we use the bottom bar mostly */}
+            <div className={`transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}>
+                 <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center pointer-events-none">
+                     <Icons.Play width={32} className="text-white ml-1" />
+                 </div>
             </div>
         </div>
         
