@@ -1,4 +1,3 @@
-
 import React, { Component, useState, useEffect, ErrorInfo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
@@ -34,11 +33,9 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Explicitly define state property
+  public state: ErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(_: Error): ErrorBoundaryState {
     return { hasError: true };
@@ -161,9 +158,6 @@ const GlobalYouTubePlayer: React.FC = () => {
                     break;
                 case 'load':
                     // Load new video/playlist
-                    // If it's a playlist, we might need to destroy/re-init or use cuePlaylist
-                    // Simplest for stability: Destroy and Re-init (handled by key prop change or manual check)
-                    // But here we can try loadVideoById / loadPlaylist
                     const isPlaylist = value.startsWith('PL') || value.length > 20;
                     if (isPlaylist) {
                         playerRef.current.loadPlaylist({list: value, listType: 'playlist'});

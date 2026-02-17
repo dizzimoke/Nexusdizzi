@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 // --- Safe Environment Detection ---
 /**
  * CRITICAL: Use optional chaining to prevent crashes if import.meta.env is missing.
- * Vite will still perform static replacement for the literal strings during build.
+ * Casting to 'any' avoids "Property 'env' does not exist on type 'ImportMeta'" build error.
  */
 export const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
 export const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
