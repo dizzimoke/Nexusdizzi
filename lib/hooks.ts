@@ -70,7 +70,7 @@ export const useSmartLinks = () => {
         setStorageData('links', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Links). Using Cache. Error:', err?.message);
+      console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
       setLinks(getStorageData('links'));
     } finally {
       setLoading(false);
@@ -100,7 +100,7 @@ export const useSmartLinks = () => {
       await fetchLinks(); 
       return true;
     } catch (err: any) {
-      console.error('[System] Add Link Failed:', err?.message || err);
+      console.error('[System] Add Link Failed:', err?.message);
       return false;
     }
   };
@@ -118,8 +118,7 @@ export const useSmartLinks = () => {
       if (error) throw error;
       await fetchLinks();
     } catch (err: any) {
-      console.error('[System] Delete Link Failed:', err?.message || err);
-      // Immediate optimistic update on failure to keep UI responsive
+      console.error('[System] Delete Link Failed:', err?.message);
       const updated = links.filter((l) => l.id !== id);
       setLinks(updated);
     }
@@ -155,7 +154,7 @@ export const useVaultItems = () => {
         setStorageData('vault', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Vault). Using Cache. Error:', err?.message);
+      console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
       setItems(getStorageData('vault'));
     } finally {
       setLoading(false);
@@ -191,7 +190,7 @@ export const useVaultItems = () => {
       await fetchItems();
       return true;
     } catch (err: any) {
-      console.error('[System] Add Vault Item Failed:', err?.message || err);
+      console.error('[System] Add Vault Item Failed:', err?.message);
       return false;
     }
   };
@@ -210,7 +209,7 @@ export const useVaultItems = () => {
       await fetchItems();
       return true;
     } catch (err: any) {
-      console.error('[System] Update Vault Item Failed:', err?.message || err);
+      console.error('[System] Update Vault Item Failed:', err?.message);
       const updated = items.map((i) => (i.id === id ? { ...i, ...updates } : i));
       setItems(updated);
       return false;
@@ -231,7 +230,7 @@ export const useVaultItems = () => {
       await fetchItems();
       return true;
     } catch (err: any) {
-      console.error('[System] Delete Vault Item Failed:', err?.message || err);
+      console.error('[System] Delete Vault Item Failed:', err?.message);
       const updated = items.filter((i) => i.id !== id);
       setItems(updated);
       return false;
@@ -268,7 +267,7 @@ export const useObserver = () => {
         setStorageData('observer', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Observer). Using Cache. Error:', err?.message);
+      console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
       setEvidence(getStorageData('observer'));
     } finally {
       setLoading(false);
@@ -304,7 +303,7 @@ export const useObserver = () => {
       await fetchEvidence();
       return true;
     } catch (err: any) {
-      console.error('[System] Add Evidence Failed:', err?.message || err);
+      console.error('[System] Add Evidence Failed:', err?.message);
       return false;
     }
   };
@@ -323,7 +322,7 @@ export const useObserver = () => {
       await fetchEvidence();
       return true;
     } catch (err: any) {
-      console.error('[System] Delete Evidence Failed:', err?.message || err);
+      console.error('[System] Delete Evidence Failed:', err?.message);
       const updated = evidence.filter((e) => e.id !== id);
       setEvidence(updated);
       return false;
@@ -344,7 +343,7 @@ export const useObserver = () => {
       await fetchEvidence();
       return true;
     } catch (err: any) {
-      console.error('[System] Update Observation Failed:', err?.message || err);
+      console.error('[System] Update Observation Failed:', err?.message);
       const updated = evidence.map((e) => (e.id === id ? { ...e, ...updates } : e));
       setEvidence(updated);
       return false;
@@ -387,7 +386,7 @@ export const useNexusFiles = () => {
         setStorageData('files', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Files). Using Cache. Error:', err?.message);
+      console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
       setFiles(getStorageData('files'));
     } finally {
       setLoading(false);
@@ -427,7 +426,7 @@ export const useNexusFiles = () => {
       await fetchFiles();
       return true;
     } catch (err: any) {
-      console.error('[System] File Upload Failed:', err?.message || err);
+      console.error('[System] File Upload Failed:', err?.message);
       return false;
     } finally {
       setUploading(false);
@@ -449,7 +448,7 @@ export const useNexusFiles = () => {
       await fetchFiles();
       return true;
     } catch (err: any) {
-      console.error('[System] File Deletion Error:', err?.message || err);
+      console.error('[System] File Deletion Error:', err?.message);
       const updated = files.filter((f) => f.id !== id);
       setFiles(updated);
       return false;
@@ -486,7 +485,7 @@ export const useTasks = () => {
         setStorageData('tasks', data);
       }
     } catch (err: any) {
-      console.warn('[System] Cloud Sync Offline (Tasks). Using Cache. Error:', err?.message);
+      console.warn('[System] Cloud Sync failed. Falling back to cache.', err?.message);
       setTasks(getStorageData('tasks'));
     } finally {
       setLoading(false);
@@ -518,7 +517,7 @@ export const useTasks = () => {
       await fetchTasks();
       return true;
     } catch (err: any) {
-      console.error('[System] Add Task Failed:', err?.message || err);
+      console.error('[System] Add Task Failed:', err?.message);
       return false;
     }
   };
@@ -537,7 +536,7 @@ export const useTasks = () => {
       await fetchTasks();
       return true;
     } catch (err: any) {
-      console.error('[System] Toggle Task Failed:', err?.message || err);
+      console.error('[System] Toggle Task Failed:', err?.message);
       const updated = tasks.map((t) => (t.id === id ? { ...t, is_completed: completed } : t));
       setTasks(updated);
       return false;
@@ -558,7 +557,7 @@ export const useTasks = () => {
       await fetchTasks();
       return true;
     } catch (err: any) {
-      console.error('[System] Delete Task Failed:', err?.message || err);
+      console.error('[System] Delete Task Failed:', err?.message);
       const updated = tasks.filter((t) => t.id !== id);
       setTasks(updated);
       return false;

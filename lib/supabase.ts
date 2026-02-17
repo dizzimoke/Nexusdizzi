@@ -1,15 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- Safe Environment Detection ---
-// We use a safe accessor for import.meta.env to prevent "Cannot read properties of undefined" errors
-// in environments where Vite globals aren't injected or during raw ESM execution.
-const env = (import.meta as any).env || {};
+// Literal access is REQUIRED for Vite production builds to inject environment variables
+const VITE_URL = import.meta.env.VITE_SUPABASE_URL;
+const VITE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabaseUrl = env.VITE_SUPABASE_URL as string;
-export const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY as string;
+export const supabaseUrl = VITE_URL || '';
+export const supabaseAnonKey = VITE_KEY || '';
 
-// Detection for "Local Only" mode: Triggered if keys are missing or we are in a known sandbox
-export const isSystemConfigured = !!(supabaseUrl && supabaseAnonKey);
+/**
+ * useCloudEngine: Boolean flag to determine if Supabase should be used.
+ * Must be an absolute URL to avoid relative path requests in production.
+ */
+export const useCloudEngine = !!(
+  VITE_URL && 
+  VITE_KEY && 
+  VITE_URL.startsWith('http')
+);
 
 export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('aistudio') ||
@@ -19,23 +25,22 @@ export const isPreview = typeof window !== 'undefined' && (
   window.location.hostname.includes('webcontainer')
 );
 
-// We should only use the Cloud Engine if configured AND not specifically forced into local-only dev
-export const useCloudEngine = isSystemConfigured;
-
 /**
  * Initialize Supabase client.
- * Using a safer initialization. If keys are missing, we create a dummy client 
- * but the hooks will know to bypass it via useCloudEngine check.
+ * Using a placeholder URL if missing to prevent relative-path errors (net::ERR_NAME_NOT_RESOLVED)
  */
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder'
+  useCloudEngine ? VITE_URL : 'https://OFFLINE_MODE.supabase.co',
+  useCloudEngine ? VITE_KEY : 'no-key'
 );
 
-if (!useCloudEngine) {
-  console.info('[System] Nexus Pro: Cloud Engine not configured or env missing. Operating in Local Engine mode.');
-} else {
-  console.info('[System] Nexus Pro: Cloud Engine detected. Initializing Secure Uplink.');
+// --- Logging for production debugging ---
+if (typeof window !== 'undefined') {
+  if (useCloudEngine) {
+    console.log('[System] Nexus Pro: Cloud Engine Active.');
+  } else {
+    console.warn('[System] Nexus Pro: Operating in Local Engine (Environment variables missing).');
+  }
 }
 
 // --- System Types ---
@@ -121,20 +126,12 @@ export const deleteFromVault = async (path: string, bucket: string) => {
   if (error) console.error(`[Uplink] Cloud Deletion Error (${bucket}):`, error.message);
 };
 
-/**
- * checkConnection: Health check for database reachability.
- */
 export const checkConnection = async (): Promise<boolean> => {
   if (!useCloudEngine) return true;
   try {
     const { error } = await supabase.from('links').select('id').limit(1);
-    if (error) {
-      console.error('[System] Cloud Link Test Failed:', error.message);
-      return false;
-    }
-    return true;
+    return !error;
   } catch (e) {
-    console.error('[System] Cloud Link unreachable:', e);
     return false;
   }
 };
