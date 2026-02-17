@@ -39,7 +39,9 @@ const Auth = () => {
                 const { error: otpError } = await supabase.auth.signInWithOtp({
                     email: normalizedEmail,
                     options: {
-                        shouldCreateUser: false, // Prevent new signups entirely via API if possible
+                        // CRITICAL FIX: Allow user creation for the first login of the admin
+                        shouldCreateUser: true, 
+                        emailRedirectTo: window.location.origin,
                     }
                 });
                 
@@ -57,7 +59,12 @@ const Auth = () => {
 
         } catch (err: any) {
             console.error("Auth Error:", err);
-            setError(err.message || 'Failed to send access link.');
+            // Handle specific Supabase error messages better
+            if (err.message?.includes("Signups not allowed")) {
+                setError("System Lockdown: Registration Disabled.");
+            } else {
+                setError(err.message || 'Failed to send access link.');
+            }
         } finally {
             setLoading(false);
         }
