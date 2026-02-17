@@ -18,12 +18,24 @@
               sans: ['Inter', 'sans-serif'],
             },
             colors: {
-              apple: {
-                black: '#000000',
-                gray: '#1c1c1e',
-                glass: 'rgba(255, 255, 255, 0.08)',
-                border: 'rgba(255, 255, 255, 0.1)',
-                blue: '#0A84FF',
+              nexus: {
+                midnight: '#020203',
+                subtle: '#08080A',
+                glass: 'rgba(255, 255, 255, 0.02)',
+                border: 'rgba(255, 255, 255, 0.06)',
+                cyan: '#00F0FF',
+                violet: '#7000FF',
+                accent: '#38bdf8', // Air Blue
+              }
+            },
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 6s ease-in-out infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
               }
             }
           },
@@ -32,16 +44,33 @@
     </script>
     <style>
       body {
-        background-color: #000000;
+        background-color: #020203;
         color: #ffffff;
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
       }
+      
+      /* Nexus Air Glass Effect */
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.015);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      }
+
+      .glass-panel:hover {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+
       /* Hide scrollbar for clean look */
       ::-webkit-scrollbar {
         width: 0px;
         background: transparent;
       }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   <script type="importmap">
 {

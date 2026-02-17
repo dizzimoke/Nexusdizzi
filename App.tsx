@@ -1,3 +1,4 @@
+
 import React, { Component, useState, useEffect, ErrorInfo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dock from './components/Dock';
@@ -42,7 +43,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen w-screen flex items-center justify-center bg-black text-red-500 font-mono flex-col gap-6 p-10 text-center">
+        <div className="h-screen w-screen flex items-center justify-center bg-nexus-midnight text-red-500 font-mono flex-col gap-6 p-10 text-center">
            <Icons.Skull width={64} height={64} className="animate-pulse" />
            <div className="space-y-2">
              <h1 className="text-2xl tracking-[0.3em] font-bold uppercase">Critical System Failure</h1>
@@ -61,15 +62,22 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-// --- Theme Configurations ---
+// --- Theme Configurations (Updated for Nexus Air Aesthetic) ---
 const THEMES = [
-  { id: 'toolbox', blob1: 'rgba(30, 58, 138, 0.4)', blob2: 'rgba(19, 78, 74, 0.4)', blob3: 'rgba(49, 46, 129, 0.3)', accent: '#3b82f6', glow: 'rgba(59, 130, 246, 0.5)' },
-  { id: 'vault', blob1: 'rgba(127, 29, 29, 0.4)', blob2: 'rgba(88, 28, 135, 0.4)', blob3: 'rgba(136, 19, 55, 0.3)', accent: '#ef4444', glow: 'rgba(239, 68, 68, 0.5)' },
-  { id: 'links', blob1: 'rgba(6, 78, 59, 0.4)', blob2: 'rgba(20, 83, 45, 0.4)', blob3: 'rgba(63, 98, 18, 0.3)', accent: '#10b981', glow: 'rgba(16, 185, 129, 0.5)' },
-  { id: 'cloak', blob1: 'rgba(20, 20, 20, 0.8)', blob2: 'rgba(10, 10, 10, 0.8)', blob3: 'rgba(5, 5, 5, 0.8)', accent: '#ffffff', glow: 'rgba(255, 255, 255, 0.2)' },
-  { id: 'sentinel', blob1: 'rgba(180, 83, 9, 0.3)', blob2: 'rgba(245, 158, 11, 0.2)', blob3: 'rgba(146, 64, 14, 0.3)', accent: '#f59e0b', glow: 'rgba(245, 158, 11, 0.5)' },
-  { id: 'observer', blob1: 'rgba(20, 83, 45, 0.5)', blob2: 'rgba(34, 197, 94, 0.15)', blob3: 'rgba(0, 0, 0, 0.9)', accent: '#22c55e', glow: 'rgba(34, 197, 94, 0.5)' },
-  { id: 'air', blob1: 'rgba(15, 23, 42, 1)', blob2: 'rgba(2, 6, 23, 1)', blob3: 'rgba(30, 41, 59, 0.5)', accent: '#38bdf8', glow: 'rgba(56, 189, 248, 0.5)' }
+  // Toolbox: Deep Blue & Cyan
+  { id: 'toolbox', blob1: '#002040', blob2: '#004050', blob3: '#001020', accent: '#00F0FF', glow: 'rgba(0, 240, 255, 0.4)' },
+  // Vault: Deep Red & Violet
+  { id: 'vault', blob1: '#2a0a0a', blob2: '#1a0505', blob3: '#100000', accent: '#FF2A6D', glow: 'rgba(255, 42, 109, 0.4)' },
+  // Links: Emerald & Teal
+  { id: 'links', blob1: '#022c22', blob2: '#064e3b', blob3: '#000000', accent: '#05FFA1', glow: 'rgba(5, 255, 161, 0.4)' },
+  // Cloak: Pure Darkness & White
+  { id: 'cloak', blob1: '#000000', blob2: '#050505', blob3: '#020202', accent: '#FFFFFF', glow: 'rgba(255, 255, 255, 0.2)' },
+  // Sentinel: Amber & Gold
+  { id: 'sentinel', blob1: '#271a00', blob2: '#1a1000', blob3: '#0a0500', accent: '#FFB800', glow: 'rgba(255, 184, 0, 0.4)' },
+  // Observer: Toxic Green
+  { id: 'observer', blob1: '#0a1f0a', blob2: '#051005', blob3: '#000000', accent: '#39FF14', glow: 'rgba(57, 255, 20, 0.4)' },
+  // Air: Deep Indigo & Atmospheric Violet (Updated)
+  { id: 'air', blob1: '#0c0a20', blob2: '#050510', blob3: '#1a1033', accent: '#818cf8', glow: 'rgba(129, 140, 248, 0.4)' }
 ];
 
 const MenuToggle = ({ mode, onToggle }: { mode: 'orbital' | 'ghost', onToggle: () => void }) => (
@@ -77,14 +85,14 @@ const MenuToggle = ({ mode, onToggle }: { mode: 'orbital' | 'ghost', onToggle: (
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         onClick={onToggle}
-        className="fixed top-6 right-6 z-[1000001] hidden lg:flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/[0.03] border border-white/10 backdrop-blur-xl hover:bg-white/[0.08] transition-all group shadow-[0_0_30px_rgba(0,0,0,0.5)]"
+        className="fixed top-6 right-6 z-[1000001] hidden lg:flex items-center gap-3 px-5 py-2.5 rounded-full bg-nexus-glass border border-nexus-border backdrop-blur-xl hover:bg-white/[0.05] transition-all group shadow-[0_0_30px_rgba(0,0,0,0.5)]"
     >
         <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/40 group-hover:text-white transition-colors">
             {mode === 'orbital' ? 'Orbital Dock' : 'Ghost Interface'}
         </span>
         <div className="relative">
-            <div className={`w-2 h-2 rounded-full transition-all duration-500 ${mode === 'ghost' ? 'bg-blue-500 shadow-[0_0_10px_#3b82f6]' : 'bg-white/20'}`} />
-            {mode === 'ghost' && <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-75" />}
+            <div className={`w-2 h-2 rounded-full transition-all duration-500 ${mode === 'ghost' ? 'bg-nexus-cyan shadow-[0_0_10px_#00F0FF]' : 'bg-white/20'}`} />
+            {mode === 'ghost' && <div className="absolute inset-0 bg-nexus-cyan rounded-full animate-ping opacity-75" />}
         </div>
     </motion.button>
 );
@@ -183,25 +191,8 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
   return (
     <div 
       onClick={handleGlobalClick}
-      className={`min-h-screen text-white selection:bg-apple-blue selection:text-white relative font-sans w-full overflow-y-auto overflow-x-hidden no-scrollbar transition-colors duration-1000 ${activeTab >= 3 ? 'bg-[#000000]' : 'bg-[#050505]'}`}
+      className={`min-h-screen text-white selection:bg-nexus-cyan selection:text-black relative font-sans w-full overflow-y-auto overflow-x-hidden no-scrollbar bg-nexus-midnight transition-colors duration-1000`}
     >
-      <style>{`
-        .aura-border {
-          background: 
-            linear-gradient(rgba(28, 28, 30, 0.3), rgba(28, 28, 30, 0.3)) padding-box,
-            linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%) border-box;
-          border: 1px solid transparent;
-        }
-        .aura-border-dark {
-           background: 
-            linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)) padding-box,
-            linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%) border-box;
-          border: 1px solid transparent;
-        }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
-
       {!isMobile && <MenuToggle mode={menuMode} onToggle={toggleMenuMode} />}
 
       <AnimatePresence>
@@ -213,9 +204,33 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
       </AnimatePresence>
 
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <motion.div animate={{ backgroundColor: currentTheme.blob1 }} transition={{ duration: 1.5 }} className="absolute top-[-10%] left-[-10%] w-[100vw] md:w-[60vw] h-[100vw] md:h-[60vw] blur-[120px] rounded-full" />
-        <motion.div animate={{ backgroundColor: currentTheme.blob2 }} transition={{ duration: 1.5 }} className="absolute bottom-[-10%] right-[-10%] w-[100vw] md:w-[60vw] h-[100vw] md:h-[60vw] blur-[120px] rounded-full" />
-        <motion.div animate={{ backgroundColor: currentTheme.blob3 }} transition={{ duration: 1.5 }} className="absolute top-[30%] left-[50%] -translate-x-1/2 w-[90vw] md:w-[70vw] h-[90vw] md:h-[70vw] blur-[100px] rounded-full" />
+        {/* Animated ambient blobs with very low opacity for deep atmosphere */}
+        <motion.div animate={{ backgroundColor: currentTheme.blob1 }} transition={{ duration: 1.5 }} className="absolute top-[-10%] left-[-10%] w-[100vw] md:w-[60vw] h-[100vw] md:h-[60vw] blur-[150px] rounded-full opacity-60" />
+        <motion.div animate={{ backgroundColor: currentTheme.blob2 }} transition={{ duration: 1.5 }} className="absolute bottom-[-10%] right-[-10%] w-[100vw] md:w-[60vw] h-[100vw] md:h-[60vw] blur-[150px] rounded-full opacity-60" />
+        <motion.div animate={{ backgroundColor: currentTheme.blob3 }} transition={{ duration: 1.5 }} className="absolute top-[30%] left-[50%] -translate-x-1/2 w-[90vw] md:w-[70vw] h-[90vw] md:h-[70vw] blur-[120px] rounded-full opacity-40" />
+        
+        {/* Nexus Air Atmospheric Override */}
+        <AnimatePresence>
+            {activeTab === 6 && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 1.5 }}
+                    className="absolute inset-0 bg-[radial-gradient(circle_at_center,#0a0f1e_0%,#020408_100%)] z-10"
+                >
+                    {/* Slow moving fog/haze */}
+                    <motion.div 
+                        className="absolute inset-0 bg-gradient-to-t from-indigo-900/10 via-transparent to-transparent"
+                        animate={{ opacity: [0.3, 0.5, 0.3] }}
+                        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* Noise Texture Overlay */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay pointer-events-none z-20" />
       </div>
 
       <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
@@ -223,14 +238,14 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
           {ripples.map((ripple) => (
             <motion.div
               key={ripple.id}
-              initial={{ opacity: 0.8, scale: 0, x: ripple.x, y: ripple.y }}
-              animate={{ opacity: 0, scale: 2.5 }}
+              initial={{ opacity: 0.6, scale: 0, x: ripple.x, y: ripple.y }}
+              animate={{ opacity: 0, scale: 2 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               onAnimationComplete={() => removeRipple(ripple.id)}
               style={{
-                position: 'absolute', top: 0, left: 0, width: '60px', height: '60px', borderRadius: '50%', backgroundColor: 'transparent',
-                border: `1px solid ${currentTheme.accent}`, boxShadow: `0 0 20px ${currentTheme.glow}`, transform: 'translate(-50%, -50%)', marginTop: -30, marginLeft: -30
+                position: 'absolute', top: 0, left: 0, width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'transparent',
+                border: `1px solid ${currentTheme.accent}`, boxShadow: `0 0 15px ${currentTheme.glow}`, transform: 'translate(-50%, -50%)', marginTop: -20, marginLeft: -20
               }}
             />
           ))}
@@ -238,13 +253,13 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
       </div>
 
       <main className="w-full max-w-7xl mx-auto min-h-screen px-6 md:px-12 lg:px-20 pt-24 pb-48 relative z-10 flex flex-col bg-transparent">
-        <div className="mb-10 flex items-end justify-between">
+        <div className="mb-12 flex items-end justify-between">
            <AnimatePresence mode="wait">
              <motion.div key={activeTab} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.4, ease: "circOut" }}>
-               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white/95 drop-shadow-2xl">{titles[activeTab]}</h1>
-               <div className="flex items-center gap-2 mt-2">
-                 <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: currentTheme.accent }} />
-                 <p className="text-sm text-white/40 font-semibold tracking-[0.2em] uppercase">{subtitles[activeTab]}</p>
+               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">{titles[activeTab]}</h1>
+               <div className="flex items-center gap-3 mt-2">
+                 <div className="w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px_currentColor]" style={{ backgroundColor: currentTheme.accent, color: currentTheme.accent }} />
+                 <p className="text-sm text-white/50 font-medium tracking-[0.2em] uppercase" style={{ textShadow: `0 0 20px ${currentTheme.glow}` }}>{subtitles[activeTab]}</p>
                  {!isOnline && (
                      <span className="ml-4 px-2 py-0.5 bg-red-500/10 border border-red-500/50 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">Offline Mode</span>
                  )}
@@ -254,7 +269,7 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
            
            <button 
               onClick={onLogout} 
-              className="text-[9px] font-bold uppercase tracking-widest text-white/30 hover:text-red-500 transition-colors bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full"
+              className="text-[9px] font-bold uppercase tracking-widest text-white/30 hover:text-red-400 transition-colors bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full backdrop-blur-md border border-white/5"
            >
               Disconnect
            </button>
@@ -269,13 +284,6 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
         </div>
       </main>
 
-      {/* 
-        Modified Dock Rendering Logic:
-        - Show if NOT focused OR if on Mobile.
-        - AND check specifically for the display mode:
-          - If Desktop (!isMobile), ONLY show if menuMode is 'orbital'.
-          - If Mobile, always show (as Ghost Sidebar is desktop only).
-      */}
       {(!isFocusMode || isMobile) && (menuMode === 'orbital' || isMobile) && (
         <Dock activeTab={activeTab} setActiveTab={setActiveTab} accentColor={currentTheme.accent} isFocusMode={isFocusMode} />
       )}
@@ -285,7 +293,6 @@ const AppContent: React.FC<AppContentProps> = ({ onLogout }) => {
 
 // --- APP ENTRY POINT ---
 const App: React.FC = () => {
-    // Check localStorage synchronously to prevent flash
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('nexus_access') === 'true';
@@ -302,9 +309,6 @@ const App: React.FC = () => {
         setIsAuthenticated(false);
     };
 
-    // If viewing a shared cloak link, we bypass auth (logic handled in AppContent if needed, 
-    // but typically a cloak link opens the viewer directly. 
-    // For simplicity here, we assume full app access requires login, except specific shared views)
     const isSharedLink = typeof window !== 'undefined' && window.location.search.includes('cloak=');
 
     if (!isAuthenticated && !isSharedLink) {

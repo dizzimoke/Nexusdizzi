@@ -76,7 +76,7 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[4px]" 
+                        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[6px]" 
                         onClick={() => setExpanded(false)} 
                     />
                 )}
@@ -99,12 +99,12 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
                                 onClick={() => handleSelect(item.id)}
                                 className={`absolute w-16 h-16 rounded-full flex items-center justify-center backdrop-blur-xl border z-50 group hover:scale-110 transition-transform duration-200
                                     ${activeTab === item.id 
-                                        ? 'bg-white text-black shadow-[0_0_40px_rgba(255,255,255,0.6)] border-white' 
+                                        ? 'bg-nexus-glass border-white text-white shadow-[0_0_30px_rgba(255,255,255,0.4)]' 
                                         : item.id === 6 
-                                            ? 'bg-black/90 text-sky-400 border-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.3)]'
+                                            ? 'bg-black/60 text-nexus-violet border-nexus-violet/50 shadow-[0_0_20px_rgba(112,0,255,0.3)]'
                                             : item.id === 4 
-                                                ? 'bg-black/80 text-amber-500 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)]' 
-                                                : 'bg-black/60 text-white border-white/20 hover:bg-white/20 shadow-2xl'}
+                                                ? 'bg-black/60 text-amber-500 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)]' 
+                                                : 'bg-black/40 text-white/70 border-white/10 hover:bg-white/10 hover:text-white shadow-xl'}
                                 `}
                             >
                                 <div className="relative flex items-center justify-center w-full h-full">
@@ -124,7 +124,7 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
                                         </svg>
                                     )}
                                 </div>
-                                <span className={`absolute -bottom-10 text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded-lg pointer-events-none whitespace-nowrap border border-white/10 ${item.id === 6 ? 'text-sky-400 border-sky-400/30' : 'text-white'}`}>
+                                <span className={`absolute -bottom-10 text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded-lg pointer-events-none whitespace-nowrap border border-white/10 ${item.id === 6 ? 'text-nexus-violet border-nexus-violet/30' : 'text-white'}`}>
                                     {item.label}
                                 </span>
                             </motion.button>
@@ -137,9 +137,9 @@ const OrbitalDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) =>
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     transition={{ duration: 0.1 }}
-                    className="relative w-24 h-24 rounded-full bg-black/80 backdrop-blur-3xl border border-white/20 flex items-center justify-center shadow-[0_0_60px_rgba(0,0,0,0.8)] z-[60] group overflow-hidden"
+                    className="relative w-24 h-24 rounded-full bg-nexus-glass backdrop-blur-3xl border border-white/20 flex items-center justify-center shadow-[0_0_50px_rgba(0,0,0,0.6)] z-[60] group overflow-hidden"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-30" />
                     <AnimatePresence mode="wait">
                         {expanded ? (
                             <motion.div
@@ -208,25 +208,25 @@ const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => 
                     >
                          <button 
                             onClick={() => handleMobileMenuSelect(3)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 3 ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}
+                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 3 ? 'bg-white text-black' : 'text-white/60 hover:text-white'}`}
                         >
                             <Icons.Cloak width={14} /> Cloak
                         </button>
                         <button 
                             onClick={() => handleMobileMenuSelect(5)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 5 ? 'bg-green-500 text-black' : 'text-white/60 hover:text-white'}`}
+                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 5 ? 'bg-green-500 text-black' : 'text-white/60 hover:text-white'}`}
                         >
                             <Icons.Aperture width={14} /> Observer
                         </button>
                         <button 
                             onClick={() => handleMobileMenuSelect(4)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 4 ? 'bg-amber-500 text-black' : 'text-white/60 hover:text-white'}`}
+                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 4 ? 'bg-amber-500 text-black' : 'text-white/60 hover:text-white'}`}
                         >
                             <Icons.Fingerprint width={14} /> Sentinel
                         </button>
                         <button 
                             onClick={() => handleMobileMenuSelect(6)}
-                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/20 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 6 ? 'bg-sky-400 text-black' : 'text-white/60 hover:text-sky-400'}`}
+                            className={`px-4 py-3 bg-black/90 backdrop-blur-[20px] border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 6 ? 'bg-nexus-violet text-white' : 'text-white/60 hover:text-nexus-violet'}`}
                         >
                             <Icons.AirPlay width={14} /> Air
                         </button>
@@ -234,7 +234,7 @@ const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => 
                 )}
             </AnimatePresence>
             <motion.div 
-                className="flex flex-wrap justify-center items-center gap-2 px-3 py-3 rounded-[2rem] bg-apple-glass backdrop-blur-xl border border-apple-border shadow-2xl shadow-black/50 pointer-events-auto relative z-20 w-full"
+                className="flex flex-wrap justify-center items-center gap-2 px-3 py-3 rounded-[2rem] bg-nexus-glass backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/50 pointer-events-auto relative z-20 w-full"
                 initial={{ y: 100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ ease: [0.4, 0, 0.2, 1], duration: 0.5 }}
@@ -253,7 +253,6 @@ const MobileDock = ({ activeTab, setActiveTab, accentColor, timeLeft }: any) => 
                         tab={tabs.find(t => t.id === activeTab) || tabs[3]} 
                         isActive={isExtraActive}
                         onClick={() => {
-                            // Cycle through extra apps (Removed 7)
                             if (activeTab === 3) setActiveTab(5);
                             else if (activeTab === 5) setActiveTab(4);
                             else if (activeTab === 4) setActiveTab(6);

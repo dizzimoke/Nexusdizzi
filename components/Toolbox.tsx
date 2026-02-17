@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Tesseract from 'tesseract.js';
@@ -41,7 +40,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       color: 'text-white', 
       component: ClockWidget, 
       span: 'col-span-2',
-      description: "Synchronize local and global temporal data in real-time."
+      description: "Synchronize local and global temporal data in real-time.",
+      accent: "shadow-white/20"
     },
     { 
       id: 'downloader' as const, 
@@ -50,7 +50,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       color: 'text-rose-400', 
       component: MediaDownloader, 
       span: 'col-span-2',
-      description: "Archive and download external media assets locally."
+      description: "Archive and download external media assets locally.",
+      accent: "shadow-rose-500/20"
     },
     { 
       id: 'squeezer' as const, 
@@ -59,16 +60,18 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       color: 'text-lime-400', 
       component: ArchiveSqueezer, 
       span: 'col-span-1',
-      description: "Compress and optimize data packets for storage."
+      description: "Compress and optimize data.",
+      accent: "shadow-lime-500/20"
     },
     { 
       id: 'fileshare' as const, 
       title: 'AirDrop', 
       icon: Icons.CloudUpload, 
-      color: 'text-cyan-400', 
+      color: 'text-nexus-cyan', 
       component: FileShareWidget, 
       span: 'col-span-1',
-      description: "Instant wireless file transmission protocol."
+      description: "Instant wireless transfer.",
+      accent: "shadow-nexus-cyan/20"
     },
     { 
       id: 'calendar' as const, 
@@ -76,7 +79,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       icon: Icons.Calendar, 
       color: 'text-blue-400', 
       component: CalendarComponent,
-      description: "Log and schedule priority mission parameters."
+      description: "Log priority parameters.",
+      accent: "shadow-blue-500/20"
     },
     { 
       id: 'qr' as const, 
@@ -84,7 +88,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       icon: Icons.QrCode, 
       color: 'text-indigo-400', 
       component: QrWidget,
-      description: "Generate and scan encrypted visual data links."
+      description: "Generate encrypted links.",
+      accent: "shadow-indigo-500/20"
     },
     { 
       id: 'spotify' as const, 
@@ -92,7 +97,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       icon: Icons.Music, 
       color: 'text-green-400', 
       component: (props: any) => <SpotifyWidget {...props} zenMode={zenMode} setZenMode={setZenMode} setZenPlaylist={setZenPlaylist} />,
-      description: "Silence system alerts for deep focus immersion."
+      description: "Silence system alerts.",
+      accent: "shadow-green-500/20"
     },
     { 
       id: 'currency' as const, 
@@ -100,7 +106,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       icon: Icons.Currency, 
       color: 'text-emerald-400', 
       component: CurrencyWidget,
-      description: "Track and convert global economic assets."
+      description: "Track global assets.",
+      accent: "shadow-emerald-500/20"
     },
     { 
       id: 'image' as const, 
@@ -108,7 +115,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       icon: Icons.Image, 
       color: 'text-pink-400', 
       component: ImageConverterWidget,
-      description: "Translate data formats across different protocols."
+      description: "Translate data formats.",
+      accent: "shadow-pink-500/20"
     },
     { 
       id: 'ocr' as const, 
@@ -116,7 +124,8 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
       icon: Icons.Scan, 
       color: 'text-yellow-400', 
       component: OCRWidget,
-      description: "Analyze and identify external security signatures."
+      description: "Identify signatures.",
+      accent: "shadow-yellow-500/20"
     },
   ];
 
@@ -138,33 +147,31 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
                 playPop();
             }}
             whileHover={{ 
-                scale: 1.03,
-                backgroundColor: "rgba(255, 255, 255, 0.08)",
-                borderColor: "rgba(255, 255, 255, 0.2)",
-                boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)"
+                scale: 1.02,
+                y: -5
             }}
-            whileTap={{ scale: 0.97 }}
-            className={`aura-border backdrop-blur-2xl rounded-[2.5rem] p-8 flex flex-col justify-between cursor-pointer group transition-all duration-300 relative overflow-hidden ${widget.span || ''}`}
+            whileTap={{ scale: 0.98 }}
+            className={`glass-panel rounded-[2rem] p-8 flex flex-col justify-between cursor-pointer group transition-all duration-300 relative overflow-hidden ${widget.span || ''} hover:${widget.accent}`}
           >
-             <div className={`absolute -right-6 -top-6 w-32 h-32 ${widget.color} opacity-0 group-hover:opacity-10 blur-3xl rounded-full transition-opacity duration-500`} />
-             <motion.div layoutId={`card-icon-${widget.id}`} className={`w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center ${widget.color} backdrop-blur-md border border-white/5 group-hover:border-white/20 transition-all shrink-0`}>
+             {/* Dynamic Glow Background on Hover */}
+             <div className={`absolute -right-12 -top-12 w-48 h-48 ${widget.color.replace('text-', 'bg-')} opacity-0 group-hover:opacity-10 blur-[80px] rounded-full transition-opacity duration-700`} />
+             
+             <motion.div layoutId={`card-icon-${widget.id}`} className={`w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center ${widget.color} backdrop-blur-md border border-white/5 group-hover:border-white/20 transition-all shrink-0 shadow-inner`}>
                 <widget.icon width={24} height={24} />
              </motion.div>
              
-             <div className="flex flex-col justify-end mt-4">
+             <div className="flex flex-col justify-end mt-4 relative z-10">
                  <div className="flex items-end justify-between">
-                     <motion.h3 layoutId={`card-title-${widget.id}`} className="text-xl font-bold text-white/90 drop-shadow-md tracking-tight">
+                     <motion.h3 layoutId={`card-title-${widget.id}`} className="text-2xl font-bold text-white tracking-tight drop-shadow-lg">
                         {widget.title}
                      </motion.h3>
                      {widget.id === 'clock' && <ClockPreview />}
                  </div>
-                 <motion.p layoutId={`card-desc-${widget.id}`} className="text-[10px] text-white/30 font-bold uppercase tracking-widest mt-1">
-                    Utility Module
-                 </motion.p>
+                 <motion.div layoutId={`card-separator-${widget.id}`} className="w-8 h-0.5 bg-white/10 my-2 group-hover:w-full group-hover:bg-white/20 transition-all duration-500" />
                  <motion.p 
-                    initial={{ opacity: 0.6 }}
+                    initial={{ opacity: 0.5 }}
                     whileHover={{ opacity: 1 }}
-                    className="text-[0.7rem] text-white/60 mt-3 font-medium leading-relaxed opacity-60 group-hover:opacity-100 transition-opacity"
+                    className="text-[11px] text-white/60 font-medium leading-relaxed"
                  >
                     {widget.description}
                  </motion.p>
@@ -181,7 +188,7 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
-                className="fixed inset-0 bg-black/65 backdrop-blur-xl z-[60]"
+                className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60]"
                 onClick={() => setActiveWidget(null)}
              />
              <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 pointer-events-none">
@@ -190,30 +197,33 @@ const Toolbox: React.FC<ToolboxProps> = ({ onFocusChange, zenMode, setZenMode, s
                      layoutId={`card-container-${widget.id}`}
                      key={widget.id}
                      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1, ease: "circOut" } }}
-                     className={`pointer-events-auto w-full bg-[#050505] rounded-[3rem] p-8 lg:p-10 shadow-[0_30px_100px_rgba(0,0,0,0.9)] relative overflow-hidden border border-white/20 
+                     className={`pointer-events-auto w-full bg-[#08080a] rounded-[3rem] p-8 lg:p-10 shadow-[0_40px_100px_rgba(0,0,0,0.8)] relative overflow-hidden border border-white/10 
                         ${widget.id === 'spotify' 
                             ? 'max-w-[600px] h-[450px]' 
-                            : 'max-w-lg lg:max-w-[500px] lg:max-h-[400px]'
+                            : 'max-w-lg lg:max-w-[500px] lg:max-h-[450px]'
                         }`}
                      transition={SPRING_CONFIG}
                    >
+                      {/* Inner Glow */}
+                      <div className={`absolute top-0 right-0 w-[300px] h-[300px] ${widget.color.replace('text-', 'bg-')} opacity-10 blur-[120px] pointer-events-none`} />
+
                       <button 
                         onClick={(e) => { e.stopPropagation(); setActiveWidget(null); }}
-                        className="absolute top-8 right-8 p-3 bg-white/10 rounded-full text-white/40 hover:text-white hover:bg-white/20 transition-all z-20 active:scale-90"
+                        className="absolute top-8 right-8 p-3 bg-white/5 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-all z-20 active:scale-90 border border-white/5"
                       >
                          <Icons.Close width={20} height={20} />
                       </button>
 
-                      <div className={`flex flex-col ${widget.id === 'spotify' ? 'h-full' : 'h-full lg:h-auto lg:min-h-0 min-h-[450px]'}`}>
+                      <div className={`flex flex-col ${widget.id === 'spotify' ? 'h-full' : 'h-full lg:h-auto lg:min-h-0 min-h-[450px]'} relative z-10`}>
                          <div className="flex items-center gap-6 mb-8">
-                            <motion.div layoutId={`card-icon-${widget.id}`} className={`w-16 h-16 rounded-[1.5rem] bg-white/5 flex items-center justify-center ${widget.color} border border-white/10`}>
+                            <motion.div layoutId={`card-icon-${widget.id}`} className={`w-16 h-16 rounded-[1.5rem] bg-white/5 flex items-center justify-center ${widget.color} border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.2)]`}>
                                <widget.icon width={32} height={32} />
                             </motion.div>
                             <div>
                                <motion.h3 layoutId={`card-title-${widget.id}`} className="text-3xl font-bold text-white tracking-tighter">
                                   {widget.title}
                                </motion.h3>
-                               <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">ACTIVE SYSTEM MODULE</span>
+                               <motion.div layoutId={`card-separator-${widget.id}`} className="w-12 h-0.5 bg-white/20 mt-2" />
                             </div>
                          </div>
 
@@ -246,7 +256,7 @@ const ClockPreview = () => {
         return () => clearInterval(timer);
     }, []);
     return (
-        <span className="text-5xl font-thin tracking-tighter opacity-10 mr-2 tabular-nums select-none">
+        <span className="text-5xl font-thin tracking-tighter opacity-20 mr-2 tabular-nums select-none text-white drop-shadow-md">
            {time.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', hour12: false })}
         </span>
     );
@@ -268,18 +278,18 @@ const ClockWidget = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full space-y-6 lg:space-y-4">
         <div className="flex items-baseline gap-4 tabular-nums">
-            <span className="text-7xl lg:text-6xl font-thin tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+            <span className="text-7xl lg:text-8xl font-thin tracking-tighter text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.3)]">
                 {hours}
             </span>
             <span className="text-4xl font-thin text-white/30 animate-pulse">:</span>
-            <span className="text-7xl lg:text-6xl font-thin tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+            <span className="text-7xl lg:text-8xl font-thin tracking-tighter text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.3)]">
                 {minutes}
             </span>
-            <div className="flex flex-col justify-end h-12 pl-4">
-                <span className="text-2xl font-medium text-white/20">{seconds}</span>
+            <div className="flex flex-col justify-end h-16 pl-4">
+                <span className="text-3xl font-medium text-white/30">{seconds}</span>
             </div>
         </div>
-        <div className="text-white/40 font-bold tracking-[0.3em] uppercase text-[10px] lg:text-[9px] border-t border-white/5 pt-4 w-full text-center">
+        <div className="text-white/40 font-bold tracking-[0.3em] uppercase text-[10px] lg:text-[11px] border-t border-white/10 pt-6 w-full text-center">
             {date}
         </div>
     </div>
@@ -425,7 +435,7 @@ const SpotifyWidget = ({ zenMode, setZenMode, setZenPlaylist }: any) => {
 
   return (
       <div className="space-y-4 h-full flex flex-col">
-        <div className="rounded-3xl overflow-hidden aura-border-dark shadow-inner relative flex-1 flex items-center justify-center bg-black/50 w-full">
+        <div className="rounded-3xl overflow-hidden border border-white/5 shadow-inner relative flex-1 flex items-center justify-center bg-black/50 w-full">
             {/* Visualizer Background */}
             {!isEditing && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-30 pointer-events-none">
@@ -490,7 +500,7 @@ const SpotifyWidget = ({ zenMode, setZenMode, setZenPlaylist }: any) => {
             {!isEditing && (
                 <button 
                     onClick={() => setIsEditing(true)}
-                    className="flex-1 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-white/40 hover:text-white"
+                    className="flex-1 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-white/40 hover:text-white border border-white/5"
                 >
                     <Icons.Settings width={12} height={12} /> 
                     Config
@@ -498,7 +508,7 @@ const SpotifyWidget = ({ zenMode, setZenMode, setZenPlaylist }: any) => {
             )}
              <button 
                 onClick={toggleMute}
-                className="flex-1 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-white/40 hover:text-white"
+                className="flex-1 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-white/40 hover:text-white border border-white/5"
             >
                 {/* Reusing existing mute toggle for system sounds */}
                 System SFX
@@ -659,7 +669,7 @@ const ImageConverterWidget = () => {
         <button
           onClick={convertAndDownload}
           disabled={!image}
-          className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-[9px] font-bold uppercase tracking-[0.3em] text-white disabled:opacity-20 transition-all"
+          className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl text-[9px] font-bold uppercase tracking-[0.3em] text-white disabled:opacity-20 transition-all shadow-lg shadow-indigo-500/30"
         >
           Execute
         </button>
@@ -743,11 +753,11 @@ const OCRWidget = () => {
         </div>
 
         <div className="flex gap-2">
-           <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-3 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-white/5">
+           <button onClick={() => fileInputRef.current?.click()} className="flex-1 py-3 bg-white/5 rounded-2xl text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 border border-white/5 hover:bg-white/10 transition-colors">
              <Icons.Scan width={14} height={14} /> Load File
            </button>
            {text && (
-             <button onClick={() => { navigator.clipboard.writeText(text); showNotification('Copied', 'info'); }} className="px-4 bg-yellow-400/5 text-yellow-400 border border-yellow-400/10 rounded-2xl">
+             <button onClick={() => { navigator.clipboard.writeText(text); showNotification('Copied', 'info'); }} className="px-4 bg-yellow-400/5 text-yellow-400 border border-yellow-400/10 rounded-2xl hover:bg-yellow-400/10 transition-colors">
                <Icons.Copy width={16} height={16} />
              </button>
            )}
